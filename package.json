@@ -1,0 +1,22 @@
+{
+  "name": "autocard",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npx tsx watch src/index.ts",
+    "dev:client": "cd client && npx vite",
+    "build:shared": "cd shared && npx tsc",
+    "build": "npm run build:shared && cd server && npx tsc && cd ../client && npx vite build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "jsdom": "^28.1.0"
+  }
+}

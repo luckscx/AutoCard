@@ -2,3 +2,8 @@ node_modules/
 dist/
 .env
 *.log
+
+.playwright/
+.playwright-cli/
+.claude/
+tool/db_source/
