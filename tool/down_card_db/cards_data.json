@@ -1,0 +1,749 @@
+[
+  {
+    "basic_info": {
+      "name": "铜蛇艾德",
+      "name_en": "Copper Ed",
+      "types": [
+        "Small",
+        "Dooley",
+        "Item"
+      ],
+      "cooldown": 5.0,
+      "damage": null,
+      "effect": "铜蛇艾德 is a small Dooley item in The Bazaar. Its starting tier is Bronze. As Dooley, you can find this item at",
+      "tags": [
+        "Bronze+",
+        "Item",
+        "Small",
+        "Dooley",
+        "Poison",
+        "Shield"
+      ],
+      "cost": {},
+      "value": {},
+      "tier": "Bronze"
+    },
+    "deep_mechanics": {
+      "base": {
+        "Attribute": {
+          "Bronze": "Bronze",
+          "Silver": "Silver",
+          "Gold": "Gold",
+          "Diamond": "Diamond"
+        },
+        "CooldownMax": {
+          "Bronze": "7s",
+          "Silver": "6s",
+          "Gold": "5s",
+          "Diamond": "4s"
+        },
+        "PoisonApplyAmount": {
+          "Bronze": 4,
+          "Silver": 4,
+          "Gold": 4,
+          "Diamond": 4
+        },
+        "ShieldApplyAmount": {
+          "Bronze": 20,
+          "Silver": 20,
+          "Gold": 20,
+          "Diamond": 20
+        },
+        "SellPrice": {
+          "Bronze": 1,
+          "Silver": 2,
+          "Gold": 4,
+          "Diamond": 8
+        },
+        "BuyPrice": {
+          "Bronze": 2,
+          "Silver": 4,
+          "Gold": 8,
+          "Diamond": 16
+        }
+      },
+      "enchantments": []
+    },
+    "enchantments": [
+      {
+        "name": "沉重",
+        "tooltip": "减速一件物品2秒",
+        "tags": [
+          "Slow"
+        ],
+        "attributes": {
+          "SlowTargets": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          },
+          "SlowAmount": {
+            "silver": "2s",
+            "gold": "2s",
+            "diamond": "2s"
+          }
+        }
+      },
+      {
+        "name": "黄金",
+        "tooltip": "此物品的价值翻倍。",
+        "tags": [
+          "Slow"
+        ],
+        "attributes": {
+          "SlowTargets": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          },
+          "SlowAmount": {
+            "silver": "2s",
+            "gold": "2s",
+            "diamond": "2s"
+          }
+        }
+      },
+      {
+        "name": "寒冰",
+        "tooltip": "冻结一件物品0.5秒",
+        "tags": [
+          "Freeze"
+        ],
+        "attributes": {
+          "FreezeTargets": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          },
+          "FreezeAmount": {
+            "silver": "0.5s",
+            "gold": "0.5s",
+            "diamond": "0.5s"
+          }
+        }
+      },
+      {
+        "name": "疾速",
+        "tooltip": "加速一件物品2秒",
+        "tags": [
+          "Haste"
+        ],
+        "attributes": {
+          "HasteTargets": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          },
+          "HasteAmount": {
+            "silver": "2s",
+            "gold": "2s",
+            "diamond": "2s"
+          }
+        }
+      },
+      {
+        "name": "护盾",
+        "tooltip": "此物品的护盾值翻倍。",
+        "tags": [
+          "Shield"
+        ],
+        "attributes": {
+          "HealAmount": {
+            "silver": 0,
+            "gold": 0,
+            "diamond": 0
+          }
+        }
+      },
+      {
+        "name": "回复",
+        "tooltip": "获得治疗，等量于此物品护盾值",
+        "tags": [
+          "Heal"
+        ],
+        "attributes": {
+          "HealAmount": {
+            "silver": 0,
+            "gold": 0,
+            "diamond": 0
+          }
+        }
+      },
+      {
+        "name": "毒素",
+        "tooltip": "此物品的剧毒翻倍。",
+        "tags": [
+          "Poison"
+        ],
+        "attributes": {
+          "BurnApplyAmount": {
+            "silver": 0,
+            "gold": 0,
+            "diamond": 0
+          }
+        }
+      },
+      {
+        "name": "炽焰",
+        "tooltip": "造成灼烧，等量于此物品的剧毒",
+        "tags": [
+          "Burn"
+        ],
+        "attributes": {
+          "BurnApplyAmount": {
+            "silver": 0,
+            "gold": 0,
+            "diamond": 0
+          }
+        }
+      },
+      {
+        "name": "闪亮",
+        "tooltip": "\"+1\"",
+        "tags": [],
+        "attributes": {
+          "PercentSlowReduction": {
+            "silver": 100,
+            "gold": 100,
+            "diamond": 100
+          },
+          "PercentFreezeReduction": {
+            "silver": 100,
+            "gold": 100,
+            "diamond": 100
+          },
+          "DestroyImmunity": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          }
+        }
+      },
+      {
+        "name": "致命",
+        "tooltip": "+50%",
+        "tags": [],
+        "attributes": {
+          "PercentSlowReduction": {
+            "silver": 100,
+            "gold": 100,
+            "diamond": 100
+          },
+          "PercentFreezeReduction": {
+            "silver": 100,
+            "gold": 100,
+            "diamond": 100
+          },
+          "DestroyImmunity": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          }
+        }
+      },
+      {
+        "name": "辉耀",
+        "tooltip": "此物品免疫冻结、减速和摧毁。",
+        "tags": [
+          "Weapon",
+          "Damage"
+        ],
+        "attributes": {
+          "PercentSlowReduction": {
+            "silver": 100,
+            "gold": 100,
+            "diamond": 100
+          },
+          "PercentFreezeReduction": {
+            "silver": 100,
+            "gold": 100,
+            "diamond": 100
+          },
+          "DestroyImmunity": {
+            "silver": 1,
+            "gold": 1,
+            "diamond": 1
+          }
+        }
+      },
+      {
+        "name": "黑曜石",
+        "tooltip": "造成伤害，等量于此物品剧毒的5倍",
+        "tags": [
+          "Weapon",
+          "Damage"
+        ],
+        "attributes": {
+          "DamageAmount": {
+            "silver": 0,
+            "gold": 0,
+            "diamond": 0
+          }
+        }
+      }
+    ],
+    "merchants": [
+      "凯夫军械库",
+      "叮当",
+      "米兹沃斯",
+      "吉娜",
+      "安德",
+      "芙蕾雅*",
+      "戈尔迪",
+      "路克斯",
+      "葵仙子",
+      "瓦尔帕克",
+      "西尔维娅",
+      "杰杰",
+      "癫茄*",
+      "蛛网*",
+      "贺夫*",
+      "时精*"
+    ],
+    "history": [
+      {
+        "version": "7.0 Hotfix#2",
+        "date": "Oct 10, 2025"
+      },
+      {
+        "version": "7.0",
+        "date": "Oct 8, 2025"
+      },
+      {
+        "version": "6.0",
+        "date": "Sep 10, 2025"
+      },
+      {
+        "version": "5.0.0",
+        "date": "Aug 13, 2025"
+      },
+      {
+        "version": "4.0.0",
+        "date": "Jul 2, 2025"
+      },
+      {
+        "version": "3.0.0",
+        "date": "Jun 4, 2025"
+      },
+      {
+        "version": "1.0.1",
+        "date": "Apr 16, 2025"
+      },
+      {
+        "version": "0.1.8",
+        "date": "Mar 5, 2025"
+      }
+    ]
+  },
+  {
+    "basic_info": {
+      "name": "红包",
+      "name_en": null,
+      "types": [
+        "Small",
+        "Item"
+      ],
+      "cooldown": null,
+      "damage": null,
+      "effect": "红包 Trigger \"When you enter an encounter that:\" Add 1 to the",
+      "tags": [
+        "Legendary",
+        "Item",
+        "Small",
+        "Common"
+      ],
+      "cost": {},
+      "value": {},
+      "tier": "Legendary"
+    },
+    "deep_mechanics": {
+      "base": {
+        "Attribute": {
+          "Diamond": "Diamond",
+          "Legendary": "Legendary"
+        },
+        "BuyPrice": {
+          "Diamond": 0,
+          "Legendary": 0
+        },
+        "SellPrice": {
+          "Diamond": 0,
+          "Legendary": 0
+        },
+        "Custom_0": {
+          "Diamond": 0,
+          "Legendary": 0
+        }
+      },
+      "enchantments": []
+    },
+    "enchantments": [],
+    "merchants": [],
+    "history": [
+      {
+        "version": "11.3",
+        "date": "Feb 14, 2026"
+      }
+    ]
+  },
+  {
+    "basic_info": {
+      "name": "划艇",
+      "name_en": null,
+      "types": [
+        "Medium",
+        "Vanessa",
+        "Item"
+      ],
+      "cooldown": 8.0,
+      "damage": null,
+      "effect": "划艇 is a medium Vanessa item in The Bazaar. Its starting tier is Gold. As Vanessa, you can find this item at",
+      "tags": [
+        "Gold+",
+        "Item",
+        "Medium",
+        "Vanessa",
+        "Charge",
+        "CooldownReference"
+      ],
+      "cost": {},
+      "value": {},
+      "tier": "Gold"
+    },
+    "deep_mechanics": {
+      "base": {
+        "Attribute": {
+          "Gold": "Gold",
+          "Diamond": "Diamond"
+        },
+        "CooldownMax": {
+          "Gold": "8s",
+          "Diamond": "8s"
+        },
+        "ChargeAmount": {
+          "Gold": "1s",
+          "Diamond": "2s"
+        },
+        "ChargeTargets": {
+          "Gold": 2,
+          "Diamond": 2
+        },
+        "Custom_0": {
+          "Gold": "5s",
+          "Diamond": "5s"
+        },
+        "Custom_1": {
+          "Gold": 0,
+          "Diamond": 0
+        },
+        "SellPrice": {
+          "Gold": 8,
+          "Diamond": 16
+        },
+        "BuyPrice": {
+          "Gold": 16,
+          "Diamond": 32
+        }
+      },
+      "enchantments": []
+    },
+    "enchantments": [
+      {
+        "name": "沉重",
+        "tooltip": "减速一件物品1秒",
+        "tags": [
+          "Slow"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "黄金",
+        "tooltip": "此物品的价值翻倍。",
+        "tags": [
+          "Slow"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "寒冰",
+        "tooltip": "冻结一件物品0.5秒",
+        "tags": [
+          "Freeze"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "疾速",
+        "tooltip": "加速一件物品1秒",
+        "tags": [
+          "Haste"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "护盾",
+        "tooltip": "每拥有一个独特类型，就获得10护盾",
+        "tags": [
+          "Shield"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "回复",
+        "tooltip": "每拥有一个独特类型，就治疗10生命值",
+        "tags": [
+          "Heal"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "毒素",
+        "tooltip": "每拥有一个独特类型，就造成1剧毒",
+        "tags": [
+          "Poison"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "炽焰",
+        "tooltip": "每拥有一个独特类型，就造成1灼烧",
+        "tags": [
+          "Burn"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "闪亮",
+        "tooltip": "\"+1\"",
+        "tags": [
+          "Crit"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "致命",
+        "tooltip": "+5%",
+        "tags": [
+          "Crit"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "辉耀",
+        "tooltip": "此物品免疫冻结、减速和摧毁。",
+        "tags": [
+          "Weapon",
+          "Damage"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "黑曜石",
+        "tooltip": "每拥有一个独特类型，就造成10伤害",
+        "tags": [
+          "Weapon",
+          "Damage"
+        ],
+        "attributes": {}
+      }
+    ],
+    "merchants": [
+      "米透",
+      "诺提卡",
+      "托克钟表店",
+      "吉娜",
+      "葵仙子",
+      "橡树君",
+      "戈尔迪",
+      "路克斯",
+      "瓦尔帕克",
+      "杰杰",
+      "癫茄*",
+      "芙蕾雅*",
+      "贺夫*",
+      "蛛网*",
+      "时精*"
+    ],
+    "history": [
+      {
+        "version": "7.0 Hotfix#2",
+        "date": "Oct 10, 2025"
+      },
+      {
+        "version": "6.0",
+        "date": "Sep 10, 2025"
+      },
+      {
+        "version": "5.1",
+        "date": "Aug 19, 2025"
+      },
+      {
+        "version": "5.0.0",
+        "date": "Aug 13, 2025"
+      },
+      {
+        "version": "3.0.0 Hotfix#3",
+        "date": "Jun 9, 2025"
+      },
+      {
+        "version": "3.0.0",
+        "date": "Jun 4, 2025"
+      },
+      {
+        "version": "0.1.9",
+        "date": "Mar 19, 2025"
+      },
+      {
+        "version": "0.1.8",
+        "date": "Mar 5, 2025"
+      }
+    ]
+  },
+  {
+    "basic_info": {
+      "name": "锡箔帽",
+      "name_en": "Tinfoil Hat",
+      "types": [
+        "Medium",
+        "Item"
+      ],
+      "cooldown": null,
+      "damage": null,
+      "effect": "锡箔帽 is a medium neutral item in The Bazaar. Its starting tier is Diamond. 锡箔帽 can be obtained from . A full list of available enchantments for 锡箔帽 can be found below. Deep Mechanics for 锡箔帽 are also available below. 敌人使用物品时，己方物品暴击率提高 （限本场战斗）。",
+      "tags": [
+        "Diamond",
+        "Item",
+        "Medium",
+        "Common",
+        "Shield"
+      ],
+      "cost": {},
+      "value": {},
+      "tier": "Diamond"
+    },
+    "deep_mechanics": {
+      "base": {
+        "Attribute": {
+          "Diamond": "Diamond"
+        },
+        "ShieldApplyAmount": {
+          "Diamond": 1
+        },
+        "SellPrice": {
+          "Diamond": 16
+        },
+        "BuyPrice": {
+          "Diamond": 32
+        }
+      },
+      "enchantments": []
+    },
+    "enchantments": [
+      {
+        "name": "沉重",
+        "tooltip": "敌人使用物品时，减速一件物品1秒。",
+        "tags": [
+          "Slow"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "黄金",
+        "tooltip": "此物品的价值翻倍。",
+        "tags": [
+          "Slow"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "寒冰",
+        "tooltip": "敌人使用物品时，冻结一件物品0.5秒。",
+        "tags": [
+          "Freeze"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "疾速",
+        "tooltip": "敌人使用物品时，加速一件物品1秒。",
+        "tags": [
+          "Haste"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "护盾",
+        "tooltip": "此物品的护盾值翻倍。",
+        "tags": [
+          "Shield"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "回复",
+        "tooltip": "敌人使用物品时，获得治疗，等量于此物品伤害。",
+        "tags": [
+          "Heal"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "毒素",
+        "tooltip": "敌人使用物品时，造成剧毒，等量于此物品护盾值的10%。",
+        "tags": [
+          "Poison"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "炽焰",
+        "tooltip": "敌人使用物品时，造成灼烧，等量于此物品护盾值的10%。",
+        "tags": [
+          "Burn"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "闪亮",
+        "tooltip": "此物品的护盾值翻倍。",
+        "tags": [
+          "Shield"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "致命",
+        "tooltip": "5%",
+        "tags": [
+          "Crit"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "辉耀",
+        "tooltip": "相邻物品受到的冻结和减速效果时长减半。",
+        "tags": [
+          "Weapon",
+          "Damage"
+        ],
+        "attributes": {}
+      },
+      {
+        "name": "黑曜石",
+        "tooltip": "敌人使用物品时，造成伤害，等量于此物品护盾。",
+        "tags": [
+          "Weapon",
+          "Damage"
+        ],
+        "attributes": {}
+      }
+    ],
+    "merchants": [],
+    "history": [
+      {
+        "version": "11.0",
+        "date": "Feb 4, 2026"
+      }
+    ]
+  }
+]
