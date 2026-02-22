@@ -40,36 +40,16 @@ class CardYMLParser:
             print(f"  ✗ 读取文件失败: {e}")
             return {}
 
-        card_data = {
-            'basic_info': {},
-            'deep_mechanics': {'base': {}, 'enchantments': []},
-            'enchantments': [],
-            'merchants': [],
-            'history': []
-        }
-
         try:
-            # 提取基本信息
-            card_data['basic_info'] = self.extract_basic_info(file_path)
-
-            # 提取深度机制
-            card_data['deep_mechanics'] = self.extract_deep_mechanics()
-
-            # 提取附魔信息
-            card_data['enchantments'] = self.extract_enchantments()
-
-            # 提取商人信息
-            card_data['merchants'] = self.extract_merchants()
-
-            # 提取历史记录
-            card_data['history'] = self.extract_history()
-
+            # 只提取基本信息
+            card_data = self.extract_basic_info(file_path)
             print(f"  ✓ 成功解析")
 
         except Exception as e:
             print(f"  ✗ 解析错误: {e}")
             import traceback
             traceback.print_exc()
+            card_data = {}
 
         return card_data
 
@@ -185,23 +165,29 @@ class CardYMLParser:
 
         # 提取标签
         tags_section = False
+        tags_indent_level = None
         for i, line in enumerate(self.lines):
             if 'Tags' in line and 'generic [ref=' in line:
                 tags_section = True
-            if tags_section and 'link' in line:
-                tag_match = re.search(r'link "([^"]+)"', line)
-                if tag_match:
-                    tag = tag_match.group(1)
-                    if tag not in card_info['tags'] and tag not in ['Tags', 'Cost', 'Value']:
-                        card_info['tags'].append(tag)
-                if i + 1 < len(self.lines):
-                    generic_match = re.search(r'generic.*: (.+)', self.lines[i + 1])
-                    if generic_match:
-                        tag = generic_match.group(1).strip()
-                        if tag and tag not in card_info['tags'] and len(tag) > 1:
+                # 记录Tags所在的缩进级别
+                tags_indent_level = len(line) - len(line.lstrip())
+                continue
+
+            if tags_section:
+                # 计算当前行的缩进
+                current_indent = len(line) - len(line.lstrip())
+
+                # 如果遇到更外层的generic（缩进更小），说明标签部分结束
+                if 'generic [ref=' in line and current_indent < tags_indent_level:
+                    break
+
+                # 提取标签
+                if 'link' in line:
+                    tag_match = re.search(r'link "([^"]+)"', line)
+                    if tag_match:
+                        tag = tag_match.group(1)
+                        if tag not in card_info['tags'] and tag not in ['Tags', 'Cost', 'Value']:
                             card_info['tags'].append(tag)
-            if tags_section and 'Cost' in line:
-                break
 
         # 提取购买价格
         for i, line in enumerate(self.lines):
@@ -238,8 +224,7 @@ class CardYMLParser:
     def extract_deep_mechanics(self) -> Dict[str, Any]:
         """提取深度机制属性"""
         mechanics = {
-            'base': {},
-            'enchantments': []
+            'base': {}
         }
 
         # 查找 Deep Mechanics 部分
@@ -288,81 +273,6 @@ class CardYMLParser:
 
         return mechanics
 
-    def extract_enchantments(self) -> List[Dict[str, Any]]:
-        """提取附魔信息"""
-        enchantments = []
-
-        # 常见附魔名称
-        enchantment_patterns = [
-            '沉重', '黄金', '寒冰', '疾速', '护盾', '回复', '毒素', '炽焰',
-            '闪亮', '致命', '辉耀', '黑曜石',
-            'Heavy', 'Golden', 'Icy', 'Turbo', 'Shield', 'Regenerative',
-            'Toxic', 'Fiery', 'Shiny', 'Deadly', 'Radiant', 'Obsidian'
-        ]
-
-        for enchant_name in enchantment_patterns:
-            # 查找附魔章节标题
-            for i, line in enumerate(self.lines):
-                if f'{enchant_name}' in line and 'heading' in line and '[level=3]' in line:
-                    enchant_data = {
-                        'name': enchant_name,
-                        'tooltip': None,
-                        'tags': [],
-                        'attributes': {}
-                    }
-
-                    # 提取tooltip
-                    for j in range(i, min(i + 50, len(self.lines))):
-                        if 'Tooltip' in self.lines[j]:
-                            for k in range(j + 1, min(j + 10, len(self.lines))):
-                                if 'generic [ref=' in self.lines[k]:
-                                    match = re.search(r'generic.*: (.+)', self.lines[k])
-                                    if match:
-                                        text = match.group(1).strip()
-                                        if text and text not in ['Tooltip', 'Tags']:
-                                            enchant_data['tooltip'] = text
-                                            break
-                            break
-
-                    # 提取标签
-                    for j in range(i, min(i + 50, len(self.lines))):
-                        if 'Tags' in self.lines[j]:
-                            for k in range(j, min(j + 15, len(self.lines))):
-                                tag_match = re.search(r'link "([^"]+)"', self.lines[k])
-                                if tag_match:
-                                    tag = tag_match.group(1)
-                                    if tag not in ['Tags', 'Tooltip'] and tag not in enchant_data['tags']:
-                                        enchant_data['tags'].append(tag)
-                            break
-
-                    # 提取属性表格
-                    for j in range(i, min(i + 100, len(self.lines))):
-                        if 'table [ref=' in self.lines[j]:
-                            # 解析属性行
-                            for k in range(j, min(j + 100, len(self.lines))):
-                                if 'row "' in self.lines[k]:
-                                    row_match = re.search(r'row "([^"]+)"', self.lines[k])
-                                    if row_match:
-                                        row_data = row_match.group(1).split()
-                                        if len(row_data) >= 4 and row_data[0] != 'Attribute':
-                                            attr_name = row_data[0]
-                                            enchant_data['attributes'][attr_name] = {
-                                                'silver': self.parse_number(row_data[1]),
-                                                'gold': self.parse_number(row_data[2]),
-                                                'diamond': self.parse_number(row_data[3])
-                                            }
-
-                                # 下一个heading表示结束
-                                if k > j + 5 and 'heading' in self.lines[k] and '[level=3]' in self.lines[k]:
-                                    break
-                            break
-
-                    if enchant_data['tooltip'] or enchant_data['attributes']:
-                        enchantments.append(enchant_data)
-                    break
-
-        return enchantments
-
     def extract_merchants(self) -> List[str]:
         """提取商人池信息"""
         merchants = []
@@ -385,33 +295,6 @@ class CardYMLParser:
                 break
 
         return merchants
-
-    def extract_history(self) -> List[Dict[str, Any]]:
-        """提取补丁历史"""
-        history = []
-
-        for i, line in enumerate(self.lines):
-            if 'heading' in line and 'History' in line:
-                for j in range(i, min(i + 500, len(self.lines))):
-                    version_match = re.search(r'heading "([\d.]+(?:\s+Hotfix#\d+)?)"', self.lines[j])
-                    if version_match:
-                        version = version_match.group(1)
-
-                        # 提取日期
-                        date = None
-                        for k in range(j, min(j + 5, len(self.lines))):
-                            date_match = re.search(r'generic.*: ((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+,?\s+\d+)', self.lines[k])
-                            if date_match:
-                                date = date_match.group(1).strip()
-                                break
-
-                        history.append({
-                            'version': version,
-                            'date': date
-                        })
-                break
-
-        return history
 
     def parse_number(self, value: str) -> Any:
         """解析数字字符串为int或float"""
@@ -479,40 +362,26 @@ class CardYMLParser:
         print(f"总卡牌数: {len(self.cards)}\n")
 
         for card in self.cards:
-            basic = card.get('basic_info', {})
-            print(f"【{basic.get('name', 'Unknown')}】")
-            if basic.get('name_en'):
-                print(f"  英文名: {basic['name_en']}")
-            if basic.get('types'):
-                print(f"  类型: {', '.join(basic['types'])}")
-            if basic.get('tier'):
-                print(f"  稀有度: {basic['tier']}")
-            if basic.get('cooldown'):
-                print(f"  冷却: {basic['cooldown']}秒")
-            if basic.get('damage'):
-                print(f"  伤害: {basic['damage']}")
-            if basic.get('effect'):
-                effect = basic['effect'][:80] + '...' if len(basic.get('effect', '')) > 80 else basic.get('effect', '')
+            print(f"【{card.get('name', 'Unknown')}】")
+            if card.get('name_en'):
+                print(f"  英文名: {card['name_en']}")
+            if card.get('types'):
+                print(f"  类型: {', '.join(card['types'])}")
+            if card.get('tier'):
+                print(f"  稀有度: {card['tier']}")
+            if card.get('cooldown'):
+                print(f"  冷却: {card['cooldown']}秒")
+            if card.get('damage'):
+                print(f"  伤害: {card['damage']}")
+            if card.get('effect'):
+                effect = card['effect'][:80] + '...' if len(card.get('effect', '')) > 80 else card.get('effect', '')
                 print(f"  效果: {effect}")
-            if basic.get('tags'):
-                print(f"  标签: {', '.join(basic['tags'])}")
-
-            deep_mech = card.get('deep_mechanics', {})
-            if deep_mech.get('base'):
-                print(f"  基础属性: {len(deep_mech['base'])} 个")
-
-            enchants = card.get('enchantments', [])
-            if enchants:
-                print(f"  附魔: {len(enchants)} 个")
-
-            merchants = card.get('merchants', [])
-            if merchants:
-                print(f"  商人: {', '.join(merchants)}")
-
-            history = card.get('history', [])
-            if history:
-                print(f"  历史版本: {len(history)} 个")
-
+            if card.get('tags'):
+                print(f"  标签: {', '.join(card['tags'])}")
+            if card.get('cost'):
+                print(f"  购买价格: {card['cost']}")
+            if card.get('value'):
+                print(f"  出售价格: {card['value']}")
             print()
 
         print("=" * 60)

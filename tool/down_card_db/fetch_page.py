@@ -184,24 +184,27 @@ def download_image_from_url(img_url, output_path):
         return None
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python fetch_page.py <url>")
-        sys.exit(1)
-
-    url = sys.argv[1]
-    session = 'fetch_page_session'
+def process_url(url, session='fetch_page_session'):
+    """Process a single URL"""
+    # Add /zh-CN suffix to URL if not already present
+    if not url.endswith('/zh-CN'):
+        url = url.rstrip('/') + '/zh-CN'
 
     # Extract name from URL for filename
     card_name = extract_name_from_url(url)
 
-    print(f"Starting script for URL: {url}")
-    print(f"Card name: {card_name}\n")
+    print(f"\nStarting script for URL: {url}")
+    print(f"Card name: {card_name}")
     print("=" * 60)
+
+    # Check if yml file already exists
+    yaml_file = f'yml/{card_name}.yml'
+    if os.path.exists(yaml_file):
+        print(f"✓ YAML file already exists, skipping: {yaml_file}")
+        return True
 
     try:
         # Step 1: Save page snapshot as YAML
-        yaml_file = f'yml/{card_name}.yml'
         if not save_snapshot(url, session, yaml_file):
             print("\nWarning: Failed to save snapshot, but continuing...")
 
@@ -219,8 +222,66 @@ def main():
                 print("✓ Script completed successfully!")
                 print(f"  YAML: {yaml_file}")
                 print(f"  Image: {output_path}")
+                return True
             else:
                 print("\n✗ Failed to save image")
+                return False
+
+    except Exception as e:
+        print(f"\n✗ Error processing {url}: {e}")
+        return False
+
+
+def main():
+    # Read card links from JSON file
+    links_file = 'card_links.json'
+
+    if not os.path.exists(links_file):
+        print(f"✗ File not found: {links_file}")
+        sys.exit(1)
+
+    with open(links_file, 'r', encoding='utf-8') as f:
+        card_links = json.load(f)
+
+    # Limit to first 3 links for testing
+    test_limit = 1000
+    card_links = card_links[:test_limit]
+
+    print(f"Loaded {len(card_links)} URLs from {links_file}")
+    print(f"Processing first {test_limit} URLs for testing...\n")
+
+    session = 'fetch_page_session'
+    success_count = 0
+    skip_count = 0
+    fail_count = 0
+
+    try:
+        for i, url in enumerate(card_links, 1):
+            print(f"\n{'='*80}")
+            print(f"Processing {i}/{len(card_links)}: {url}")
+            print(f"{'='*80}")
+
+            card_name = extract_name_from_url(url)
+            yaml_file = f'yml/{card_name}.yml'
+
+            if os.path.exists(yaml_file):
+                print(f"✓ Skipping (already exists): {yaml_file}")
+                skip_count += 1
+                continue
+
+            result = process_url(url, session)
+            if result:
+                success_count += 1
+            else:
+                fail_count += 1
+
+        print(f"\n{'='*80}")
+        print("Batch processing completed!")
+        print(f"  Total: {len(card_links)}")
+        print(f"  Success: {success_count}")
+        print(f"  Skipped: {skip_count}")
+        print(f"  Failed: {fail_count}")
+        print(f"{'='*80}")
 
     finally:
         # Clean up: close the browser session

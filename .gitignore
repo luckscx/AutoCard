@@ -7,3 +7,5 @@ dist/
 .playwright-cli/
 .claude/
 tool/db_source/
+tool/down_card_db/.DS_Store
+.DS_Store
