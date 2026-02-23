@@ -3,6 +3,7 @@ import type { ItemSize, Port, TargetRule, Tier } from './game.js';
 export interface ItemConfig {
   itemId: string;
   name: string;
+  nameEn?: string;
   description: string;
   size: ItemSize;
   baseTier: Tier;
@@ -12,6 +13,8 @@ export interface ItemConfig {
   targetRule: TargetRule;
   tags: string[];
   sourceHero?: string;
+  image?: string;
+  categories?: string[];
 }
 
 export interface HeroConfig {

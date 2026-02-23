@@ -79,6 +79,7 @@ export const api = {
   // Config
   getHeroes: () => request<HeroConfig[]>('GET', '/config/heroes'),
   getItems: () => request<ItemConfig[]>('GET', '/config/items'),
+  getBazaarItems: () => request<ItemConfig[]>('GET', '/config/bazaar-items'),
   getMonsters: () => request<MonsterConfig[]>('GET', '/config/monsters'),
   getEvents: () => request<EventConfig[]>('GET', '/config/events'),
 };

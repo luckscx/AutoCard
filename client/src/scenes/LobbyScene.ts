@@ -31,8 +31,12 @@ export class LobbyScene extends Scene {
     this.addChild(loadingText);
 
     try {
-      const [heroes, items] = await Promise.all([api.getHeroes(), api.getItems()]);
-      gameState.setConfigs(heroes, items);
+      const [heroes, items, bazaarItems] = await Promise.all([
+        api.getHeroes(),
+        api.getItems(),
+        api.getBazaarItems().catch(() => []),
+      ]);
+      gameState.setConfigs(heroes, items, bazaarItems);
 
       const { run: existingRun } = await api.getCurrentRun();
       if (existingRun) {
