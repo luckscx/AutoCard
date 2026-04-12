@@ -91,6 +91,7 @@ export class MainScene extends Scene {
     this.boardRow.onDragOut = (item, gx, gy) => this.handleBoardDragOut(item, gx, gy);
     this.boardRow.onDragging = (item, gx, gy) => this.handleBoardDragging(item, gx, gy);
     this.boardRow.onDragStop = () => this.handleDragCleanup();
+    this.boardRow.onMerge = (a, b) => this.handleMerge(a, b, 'board');
     this.addChild(this.boardRow);
 
     // 储物箱行（放在 Z2 内部，初始隐藏）
@@ -103,6 +104,7 @@ export class MainScene extends Scene {
     this.stashRow.onDragOut = (item, gx, gy) => this.handleStashDragOut(item, gx, gy);
     this.stashRow.onDragging = (item, gx, gy) => this.handleStashDragging(item, gx, gy);
     this.stashRow.onDragStop = () => this.handleDragCleanup();
+    this.stashRow.onMerge = (a, b) => this.handleMerge(a, b, 'stash');
     this.stashRow.visible = false;
     this.addChild(this.stashRow);
 
@@ -156,7 +158,11 @@ export class MainScene extends Scene {
     const hourType = HOUR_TYPE[run.hour as keyof typeof HOUR_TYPE];
 
     if (hourType === 'choice') {
-      this.showChoiceButtons(run.id);
+      if (run.pendingEvent) {
+        this.showPendingEvent(run.id, run.pendingEvent);
+      } else {
+        this.showChoiceButtons(run.id);
+      }
     } else if (hourType === 'pve') {
       this.showPveButtons(run.id);
     } else {
@@ -313,6 +319,20 @@ export class MainScene extends Scene {
     }
   }
 
+  private async handleMerge(a: SlotItem, b: SlotItem, target: 'board' | 'stash') {
+    const run = gameState.run!;
+    const [indexA, indexB] =
+      a.slotIndex <= b.slotIndex ? [a.slotIndex, b.slotIndex] : [b.slotIndex, a.slotIndex];
+    try {
+      const result = await api.mergeItems(run.id, target, indexA, indexB);
+      gameState.setRun(result.run);
+      this.refresh();
+    } catch (e: any) {
+      console.error('Merge failed:', e.message);
+      alert(e.message || '合成失败');
+    }
+  }
+
   // ====== 选择按钮 ======
 
   private showChoiceButtons(runId: string) {
@@ -327,12 +347,53 @@ export class MainScene extends Scene {
       btn.x = INNER_X + i * 290;
       btn.y = Z2_CARD_Y + 40;
       btn.on('pointertap', async () => {
-        const result = await api.hourChoice(runId, c.choice);
-        gameState.setRun(result.run);
-        if (c.choice === 'shop' && result.shopItems) {
-          this.sm.goto('shop', { run: result.run, shopItems: result.shopItems });
-        } else {
+        try {
+          const result = await api.hourChoice(runId, c.choice);
+          gameState.setRun(result.run);
+          if (c.choice === 'shop' && result.shopItems) {
+            this.sm.goto('shop', { run: result.run, shopItems: result.shopItems });
+          } else {
+            this.sm.goto('main');
+          }
+        } catch (e: any) {
+          console.error('hourChoice failed:', e.message);
+          alert(e.message || '操作失败');
+        }
+      });
+      this.z2Content.addChild(btn);
+    });
+  }
+
+  private showPendingEvent(runId: string, pending: { eventId: string; name: string; description: string; options: { label: string }[] }) {
+    const title = new Text({
+      text: pending.name,
+      style: { fill: '#ffd700', fontSize: 16, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    title.x = INNER_X;
+    title.y = Z2_LABEL_Y;
+    this.z2Content.addChild(title);
+
+    const desc = new Text({
+      text: pending.description,
+      style: { fill: '#ccddee', fontSize: 13, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: W - SIDE_PAD * 2 - INNER_X * 2 },
+    });
+    desc.x = INNER_X;
+    desc.y = Z2_LABEL_Y + 26;
+    this.z2Content.addChild(desc);
+
+    const startY = Z2_CARD_Y + 10;
+    pending.options.forEach((opt, i) => {
+      const btn = new Button(opt.label, Math.min(520, W - SIDE_PAD * 2 - INNER_X * 2), 44, 0x4a90d9);
+      btn.x = INNER_X;
+      btn.y = startY + i * 52;
+      btn.on('pointertap', async () => {
+        try {
+          const result = await api.event(runId, pending.eventId, i);
+          gameState.setRun(result.run);
           this.sm.goto('main');
+        } catch (e: any) {
+          console.error('event failed:', e.message);
+          alert(e.message || '事件处理失败');
         }
       });
       this.z2Content.addChild(btn);
@@ -351,15 +412,20 @@ export class MainScene extends Scene {
       btn.x = INNER_X + i * 290;
       btn.y = Z2_CARD_Y + 40;
       btn.on('pointertap', async () => {
-        const boardSnap = [...gameState.run!.board];
-        const result = await api.pve(runId, d.diff);
-        gameState.setRun(result.run);
-        this.sm.goto('battle', {
-          type: 'pve',
-          result: result.battle,
-          monsterName: result.monster.name,
-          playerBoard: boardSnap,
-        });
+        try {
+          const boardSnap = [...gameState.run!.board];
+          const result = await api.pve(runId, d.diff);
+          gameState.setRun(result.run);
+          this.sm.goto('battle', {
+            type: 'pve',
+            result: result.battle,
+            monsterName: result.monster.name,
+            playerBoard: boardSnap,
+          });
+        } catch (e: any) {
+          console.error('pve failed:', e.message);
+          alert(e.message || '战斗开始失败');
+        }
       });
       this.z2Content.addChild(btn);
     });
@@ -370,16 +436,21 @@ export class MainScene extends Scene {
     btn.x = INNER_X + 200;
     btn.y = Z2_CARD_Y + 40;
     btn.on('pointertap', async () => {
-      const boardSnap = [...gameState.run!.board];
-      const result = await api.pvp(runId);
-      gameState.setRun(result.run);
-      this.sm.goto('battle', {
-        type: 'pvp',
-        result: result.battle,
-        opponentHero: result.opponent.heroId,
-        opponentBoard: result.opponent.board,
-        playerBoard: boardSnap,
-      });
+      try {
+        const boardSnap = [...gameState.run!.board];
+        const result = await api.pvp(runId);
+        gameState.setRun(result.run);
+        this.sm.goto('battle', {
+          type: 'pvp',
+          result: result.battle,
+          opponentHero: result.opponent.heroId,
+          opponentBoard: result.opponent.board,
+          playerBoard: boardSnap,
+        });
+      } catch (e: any) {
+        console.error('pvp failed:', e.message);
+        alert(e.message || 'PvP 开始失败');
+      }
     });
     this.z2Content.addChild(btn);
   }

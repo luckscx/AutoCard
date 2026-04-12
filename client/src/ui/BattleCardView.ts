@@ -13,6 +13,7 @@ const STATUS_COLORS: Record<string, number> = {
 export class BattleCardView extends Container {
   private bg!: Graphics;
   private cdBar!: Graphics;
+  private cdLabel!: Text;
   private statusOverlay!: Graphics;
   private triggerFlash!: Graphics;
   private w: number;
@@ -68,6 +69,15 @@ export class BattleCardView extends Container {
     this.cdBar = new Graphics();
     this.addChild(this.cdBar);
 
+    this.cdLabel = new Text({
+      text: '',
+      style: { fill: '#aaddff', fontSize: 10, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    this.cdLabel.anchor.set(0.5, 1);
+    this.cdLabel.x = w / 2;
+    this.cdLabel.y = h - 10;
+    this.addChild(this.cdLabel);
+
     this.statusOverlay = new Graphics();
     this.statusOverlay.alpha = 0.3;
     this.addChild(this.statusOverlay);
@@ -92,6 +102,10 @@ export class BattleCardView extends Container {
         this.cdBar.roundRect(0, this.h - barH, w * ratio, barH, 3);
         this.cdBar.fill(0x44aaff);
       }
+      const pct = Math.round(ratio * 100);
+      this.cdLabel.text = pct >= 100 ? '就绪' : `${pct}%`;
+    } else {
+      this.cdLabel.text = '';
     }
 
     this.statusOverlay.clear();

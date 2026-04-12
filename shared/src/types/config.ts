@@ -1,5 +1,12 @@
 import type { ItemSize, Port, TargetRule, Tier } from './game.js';
 
+/** 野怪多卡棋盘；不配则战斗端用 attack 合成单卡普攻 */
+export interface MonsterBattleSlot {
+  itemId: string;
+  slotIndex: number;
+  tier?: Tier;
+}
+
 export interface ItemConfig {
   itemId: string;
   name: string;
@@ -37,6 +44,7 @@ export interface MonsterConfig {
   xpReward: number;
   goldReward: number;
   lootTable: { itemId: string; chance: number }[];
+  battleBoard?: MonsterBattleSlot[];
 }
 
 export interface EventConfig {

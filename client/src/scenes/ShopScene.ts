@@ -14,6 +14,7 @@ import {
   Z3_Y, Z3_H, Z3_LABEL_Y, Z3_CARD_Y,
   CARD_UNIT, CARD_GAP,
 } from '../ui/layout.js';
+import { shopRefreshCostForLevel } from '@autocard/shared';
 
 interface ShopData {
   run: RunState;
@@ -86,9 +87,10 @@ export class ShopScene extends Scene {
     leaveBtn.on('pointertap', () => this.handleLeave());
     this.addChild(leaveBtn);
 
+    const refreshCost = shopRefreshCostForLevel(run.level);
     const refreshBtn = new Button(
-      run.shopRefreshed ? '已刷新' : '刷新商品',
-      110, 28,
+      run.shopRefreshed ? '已刷新' : `刷新 (${refreshCost}G)`,
+      130, 28,
       run.shopRefreshed ? 0x444444 : 0xd9944a,
     );
     refreshBtn.x = W - SIDE_PAD - 250;
@@ -182,6 +184,7 @@ export class ShopScene extends Scene {
       this.sellHint.visible = gy < Z3_Y;
     };
     this.boardRow.onDragStop = () => { this.sellHint.visible = false; };
+    this.boardRow.onMerge = (a, b) => this.handleMergeInBoard(a, b);
     this.addChild(this.boardRow);
 
     // ---- Z4: 底栏 ----
@@ -199,6 +202,20 @@ export class ShopScene extends Scene {
       this.render();
     } catch (e: any) {
       console.error('Sell failed:', e.message);
+    }
+  }
+
+  private async handleMergeInBoard(a: SlotItem, b: SlotItem) {
+    const run = gameState.run!;
+    const [indexA, indexB] =
+      a.slotIndex <= b.slotIndex ? [a.slotIndex, b.slotIndex] : [b.slotIndex, a.slotIndex];
+    try {
+      const result = await api.mergeItems(run.id, 'board', indexA, indexB);
+      gameState.setRun(result.run);
+      this.render();
+    } catch (e: any) {
+      console.error('Merge failed:', e.message);
+      alert(e.message || '合成失败');
     }
   }
 

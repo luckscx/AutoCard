@@ -1,5 +1,11 @@
 import type { BattleResult, ChoiceKind, RunState, SlotItem } from './game.js';
 
+export interface UserMeResponse {
+  userId: string;
+  nickname: string;
+  openId: string;
+}
+
 // --- Run ---
 export interface StartRunRequest {
   heroId: string;

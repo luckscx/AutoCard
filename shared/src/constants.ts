@@ -21,6 +21,14 @@ export const SHOP_REFRESH_COST: Record<string, number> = {
   diamond: 8,
 };
 
+/** 商店刷新金币：随等级提高 */
+export function shopRefreshCostForLevel(level: number): number {
+  if (level < 3) return SHOP_REFRESH_COST.bronze;
+  if (level < 5) return SHOP_REFRESH_COST.silver;
+  if (level < 8) return SHOP_REFRESH_COST.gold;
+  return SHOP_REFRESH_COST.diamond;
+}
+
 export const TIER_ORDER = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
 
 export const TIER_MULTIPLIER: Record<string, number> = {

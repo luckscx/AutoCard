@@ -31,6 +31,14 @@ export interface SlotItem {
   slotIndex: number;
 }
 
+/** 日常运营中选「随机事件」后挂起，完成选项前不推进小时 */
+export interface PendingEventState {
+  eventId: string;
+  name: string;
+  description: string;
+  options: { label: string }[];
+}
+
 export interface RunState {
   id: string;
   userId: string;
@@ -48,6 +56,7 @@ export interface RunState {
   board: SlotItem[];
   stash: SlotItem[];
   shopRefreshed?: boolean;
+  pendingEvent?: PendingEventState | null;
 }
 
 export interface PvpMirrorSnapshot {

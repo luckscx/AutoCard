@@ -45,6 +45,7 @@ export class BattleScene extends Scene {
   private floatLayer!: Container;
   private battleResult!: BattleResult;
   private data!: BattleData;
+  private tickLabel!: Text;
 
   constructor(sm: SceneManager) {
     super();
@@ -129,6 +130,14 @@ export class BattleScene extends Scene {
     speedLabel.y = Z1_Y + 8;
     this.addChild(speedLabel);
 
+    this.tickLabel = new Text({
+      text: 'Tick 0',
+      style: { fill: '#99aacc', fontSize: 11, fontFamily: 'Arial' },
+    });
+    this.tickLabel.x = INNER_X + 200;
+    this.tickLabel.y = Z1_Y + 8;
+    this.addChild(this.tickLabel);
+
     // Z2: 敌方棋盘
     const z2Bg = new Graphics();
     z2Bg.roundRect(0, 0, W - SIDE_PAD * 2, Z2_H, 10);
@@ -210,6 +219,7 @@ export class BattleScene extends Scene {
     }
 
     this.currentTick = targetTick;
+    this.tickLabel.text = `Tick ${targetTick}`;
     this.syncSnapshot();
 
     if (this.eventIdx >= this.events.length && !this.resultShown) {
@@ -367,8 +377,9 @@ export class BattleScene extends Scene {
     overlay.fill({ color: 0x000000, alpha: 0.55 });
     this.addChild(overlay);
 
+    const panelH = result.loot && result.loot.length > 0 ? 300 : 260;
     const panel = new Graphics();
-    panel.roundRect(0, 0, 420, 260, 12);
+    panel.roundRect(0, 0, 420, panelH, 12);
     panel.fill({ color: 0x0e1a2b, alpha: 0.95 });
     panel.stroke({ color: result.won ? 0x4ad97a : 0xd94a4a, width: 2 });
     panel.x = W / 2 - 210;
@@ -391,6 +402,7 @@ export class BattleScene extends Scene {
     if (result.loot && result.loot.length > 0) {
       const names = result.loot.map(id => gameState.itemsMap.get(id)?.name ?? id);
       lines.push(`战利品: ${names.join(', ')}`);
+      lines.push('（已放入储物箱，若格子已满则未入包）');
     }
     const detail = new Text({
       text: lines.join('\n'),

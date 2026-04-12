@@ -1,4 +1,4 @@
-import { Container, Graphics, Text, Sprite, Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
 import type { SlotItem, ItemSize } from '@autocard/shared';
 import { gameState } from '../core/GameState.js';
 import { cardWidth, CARD_H, TIER_COLORS, TIER_BG, tierHex } from './layout.js';
@@ -17,6 +17,9 @@ export class CardView extends Container {
     this.tier = item.tier;
     this.size = item.size;
     this.draw();
+    const w = cardWidth(this.size);
+    this.eventMode = 'static';
+    this.hitArea = new Rectangle(0, 0, w, CARD_H);
   }
 
   private draw() {
@@ -119,12 +122,12 @@ export class CardView extends Container {
     if (imageCache.has(imageUrl)) {
       this.createSprite(imageCache.get(imageUrl)!, imgX, imgY, imgW, imgH);
     } else {
-      Texture.fromURL(imageUrl)
-        .then(texture => {
+      Assets.load<Texture>(imageUrl)
+        .then((texture: Texture) => {
           imageCache.set(imageUrl, texture);
           this.createSprite(texture, imgX, imgY, imgW, imgH);
         })
-        .catch(err => {
+        .catch((err: unknown) => {
           console.warn(`Failed to load card image: ${imageUrl}`, err);
         });
     }

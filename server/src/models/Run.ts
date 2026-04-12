@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
-import type { RunStatus, SlotItem, Tier, ItemSize } from '@autocard/shared';
+import type { RunStatus, SlotItem, Tier, ItemSize, PendingEventState } from '@autocard/shared';
 
 export interface IRun extends Document {
   userId: Types.ObjectId;
@@ -18,15 +18,27 @@ export interface IRun extends Document {
   stash: SlotItem[];
   shopItems: string[];
   shopRefreshed: boolean;
+  pendingEvent?: PendingEventState | null | undefined;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const SlotItemSchema = new Schema<SlotItem>({
   itemId: { type: String, required: true },
-  tier: { type: String, enum: ['bronze', 'silver', 'gold', 'diamond'], required: true },
+  tier: { type: String, enum: ['bronze', 'silver', 'gold', 'diamond', 'legendary'], required: true },
   size: { type: Number, enum: [1, 2, 3], required: true },
   slotIndex: { type: Number, required: true },
+}, { _id: false });
+
+const PendingEventOptionSchema = new Schema<{ label: string }>({
+  label: { type: String, required: true },
+}, { _id: false });
+
+const PendingEventSchema = new Schema<PendingEventState>({
+  eventId: { type: String, required: true },
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  options: { type: [PendingEventOptionSchema], required: true },
 }, { _id: false });
 
 const RunSchema = new Schema<IRun>({
@@ -46,6 +58,7 @@ const RunSchema = new Schema<IRun>({
   stash: { type: [SlotItemSchema], default: [] },
   shopItems: { type: [String], default: [] },
   shopRefreshed: { type: Boolean, default: false },
+  pendingEvent: { type: PendingEventSchema, default: null },
 }, { timestamps: true });
 
 RunSchema.index({ userId: 1, status: 1 });

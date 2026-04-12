@@ -4,6 +4,7 @@ import type {
   PlaceItemResponse, MergeItemResponse,
   BuyItemResponse, RefreshShopResponse, LeaveShopResponse, EventChoiceResponse,
   SellItemResponse, SwapItemsResponse,
+  UserMeResponse,
 } from '@autocard/shared';
 import type { HeroConfig, ItemConfig, MonsterConfig, EventConfig } from '@autocard/shared';
 
@@ -82,4 +83,8 @@ export const api = {
   getBazaarItems: () => request<ItemConfig[]>('GET', '/config/bazaar-items'),
   getMonsters: () => request<MonsterConfig[]>('GET', '/config/monsters'),
   getEvents: () => request<EventConfig[]>('GET', '/config/events'),
+
+  getUserMe: () => request<UserMeResponse>('GET', '/user/me'),
+  patchNickname: (nickname: string) =>
+    request<UserMeResponse>('PATCH', '/user/nickname', { nickname }),
 };

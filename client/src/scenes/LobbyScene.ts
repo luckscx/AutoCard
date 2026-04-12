@@ -1,4 +1,4 @@
-import { Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js';
 import { api } from '../api/client.js';
@@ -31,12 +31,38 @@ export class LobbyScene extends Scene {
     this.addChild(loadingText);
 
     try {
-      const [heroes, items, bazaarItems] = await Promise.all([
+      const [heroes, items, bazaarItems, me] = await Promise.all([
         api.getHeroes(),
         api.getItems(),
         api.getBazaarItems().catch(() => []),
+        api.getUserMe().catch(() => null),
       ]);
       gameState.setConfigs(heroes, items, bazaarItems);
+
+      if (me) {
+        const nick = new Text({
+          text: `冒险者：${me.nickname}`,
+          style: { fill: '#aaddff', fontSize: 14, fontFamily: 'Arial' },
+        });
+        nick.anchor.set(0.5, 0);
+        nick.x = W / 2;
+        nick.y = 72;
+        nick.eventMode = 'static';
+        nick.cursor = 'pointer';
+        nick.on('pointertap', async () => {
+          const next = window.prompt('新昵称（1–24 字）', me.nickname);
+          if (next == null || !next.trim()) return;
+          try {
+            const u = await api.patchNickname(next.trim());
+            nick.text = `冒险者：${u.nickname}`;
+          } catch (err: any) {
+            alert(err.message || '修改失败');
+          }
+        });
+        this.addChild(nick);
+      }
+
+      this.maybeShowTutorial();
 
       const { run: existingRun } = await api.getCurrentRun();
       if (existingRun) {
@@ -54,6 +80,38 @@ export class LobbyScene extends Scene {
       loadingText.cursor = 'pointer';
       loadingText.on('pointertap', () => this.onEnter());
     }
+  }
+
+  private maybeShowTutorial() {
+    if (localStorage.getItem('autocard_tip_seen')) return;
+    const wrap = new Container();
+    const bg = new Graphics();
+    bg.roundRect(0, 0, W - SIDE_PAD * 2, 72, 8);
+    bg.fill({ color: 0x0a1520, alpha: 0.92 });
+    bg.stroke({ color: 0x4a90d9, width: 1 });
+    bg.x = SIDE_PAD;
+    bg.y = 420;
+    wrap.addChild(bg);
+
+    const tip = new Text({
+      text: '每天 6 小时：运营三选一 → PvE → 再运营 → PvP。声望耗尽失败；累计 10 场 PvP 胜通关。悬停卡牌可看端口目标格。',
+      style: { fill: '#ccddee', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: W - SIDE_PAD * 2 - 120 },
+    });
+    tip.x = SIDE_PAD + 12;
+    tip.y = 432;
+    wrap.addChild(tip);
+
+    const ok = new Button('知道了', 88, 30, 0x4a90d9);
+    ok.x = W - SIDE_PAD - 100;
+    ok.y = 440;
+    ok.on('pointertap', () => {
+      localStorage.setItem('autocard_tip_seen', '1');
+      this.removeChild(wrap);
+      wrap.destroy({ children: true });
+    });
+    wrap.addChild(ok);
+
+    this.addChild(wrap);
   }
 
   private renderHeroCards(heroes: HeroConfig[]) {

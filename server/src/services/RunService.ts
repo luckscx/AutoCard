@@ -1,7 +1,7 @@
 import type { Types } from 'mongoose';
 import {
   INITIAL_PRESTIGE, XP_PER_LEVEL, PVP_WINS_TO_WIN,
-  HOURS_PER_DAY, HOUR_TYPE,
+  HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel,
   type RunState, type BattleResult, type SlotItem,
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
@@ -27,6 +27,7 @@ function toRunState(doc: IRun): RunState {
     board: doc.board,
     stash: doc.stash,
     shopRefreshed: doc.shopRefreshed,
+    pendingEvent: doc.pendingEvent ?? undefined,
   };
 }
 
@@ -74,30 +75,58 @@ export class RunService {
     const hourType = HOUR_TYPE[run.hour as keyof typeof HOUR_TYPE];
     if (hourType !== 'choice') throw new Error(`Hour ${run.hour} is not a choice hour`);
 
-    let shopItems: string[] | undefined;
-    let event: { eventId: string; options: { label: string }[] } | undefined;
-    let gift: { itemId: string } | undefined;
+    if (run.pendingEvent) {
+      if (choice === 'shop' || choice === 'gift') {
+        throw new Error('请先完成随机事件');
+      }
+      const pe = run.pendingEvent;
+      return {
+        run: toRunState(run),
+        event: { eventId: pe.eventId, options: pe.options },
+      };
+    }
 
     if (choice === 'shop') {
-      shopItems = this.generateShopItems(run.level);
+      const shopItems = this.generateShopItems(run.level);
       run.shopItems = shopItems;
       run.shopRefreshed = false;
       await run.save();
-      return { run: toRunState(run), shopItems, event, gift };
-    } else if (choice === 'event') {
-      const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
-      event = { eventId: ev.eventId, options: ev.options.map(o => ({ label: o.label })) };
-    } else {
-      const allItems = Array.from(ITEMS_MAP.values()).filter(i => i.baseTier === 'bronze');
-      const giftItem = allItems[Math.floor(Math.random() * allItems.length)];
-      gift = { itemId: giftItem.itemId };
+      return { run: toRunState(run), shopItems };
     }
 
+    if (choice === 'event') {
+      const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+      run.pendingEvent = {
+        eventId: ev.eventId,
+        name: ev.name,
+        description: ev.description,
+        options: ev.options.map(o => ({ label: o.label })),
+      };
+      run.markModified('pendingEvent');
+      await run.save();
+      return {
+        run: toRunState(run),
+        event: { eventId: ev.eventId, options: ev.options.map(o => ({ label: o.label })) },
+      };
+    }
+
+    const allItems = Array.from(ITEMS_MAP.values()).filter(i => i.baseTier === 'bronze');
+    const giftCfg = allItems[Math.floor(Math.random() * allItems.length)];
+    const freeSlot = this.findFreeSlot(run.stash, giftCfg.size);
+    if (freeSlot < 0) throw new Error('储物箱已满，无法领取礼物');
+
+    run.stash.push({
+      itemId: giftCfg.itemId,
+      tier: giftCfg.baseTier,
+      size: giftCfg.size,
+      slotIndex: freeSlot,
+    });
+    run.markModified('stash');
     this.gainXp(run, 1);
     this.advanceHour(run);
     await run.save();
 
-    return { run: toRunState(run), shopItems, event, gift };
+    return { run: toRunState(run), gift: { itemId: giftCfg.itemId } };
   }
 
   async handlePve(runId: string, userId: string, difficulty: 'easy' | 'medium' | 'hard') {
@@ -110,7 +139,7 @@ export class RunService {
 
     const battleResult = resolvePveBattle(
       { hp: run.hp, maxHp: run.maxHp, level: run.level, board: run.board },
-      { hp: monster.hp, attack: monster.attack },
+      monster,
     );
 
     battleResult.xpGained = monster.xpReward;
@@ -126,6 +155,15 @@ export class RunService {
         if (Math.random() < drop.chance) loot.push(drop.itemId);
       }
       battleResult.loot = loot;
+
+      for (const itemId of loot) {
+        const cfg = ITEMS_MAP.get(itemId);
+        if (!cfg) continue;
+        const freeSlot = this.findFreeSlot(run.stash, cfg.size);
+        if (freeSlot < 0) continue;
+        run.stash.push({ itemId, tier: cfg.baseTier, size: cfg.size, slotIndex: freeSlot });
+        run.markModified('stash');
+      }
     }
 
     this.advanceHour(run);
@@ -166,6 +204,7 @@ export class RunService {
     const mirror = await PvpMirrorModel.findOne({
       userId: { $ne: run.userId },
       day: { $gte: run.day - 1, $lte: run.day + 1 },
+      level: { $gte: run.level - 2, $lte: run.level + 2 },
     }).sort({ createdAt: -1 });
 
     let opponent: { heroId: string; level: number; board: SlotItem[]; hp: number; maxHp: number };
@@ -248,6 +287,10 @@ export class RunService {
     const run = await this.getActiveRun(runId, userId);
     if (run.shopRefreshed) throw new Error('已经刷新过一次了');
 
+    const cost = shopRefreshCostForLevel(run.level);
+    if (run.gold < cost) throw new Error(`金币不足，刷新需要 ${cost}G`);
+
+    run.gold -= cost;
     run.shopRefreshed = true;
     const shopItems = this.generateShopItems(run.level);
     run.shopItems = shopItems;
@@ -269,6 +312,10 @@ export class RunService {
   // --- Event ---
   async handleEvent(runId: string, userId: string, eventId: string, optionIndex: number) {
     const run = await this.getActiveRun(runId, userId);
+    if (!run.pendingEvent || run.pendingEvent.eventId !== eventId) {
+      throw new Error('没有进行中的事件或事件 ID 不匹配');
+    }
+
     const ev = EVENTS.find(e => e.eventId === eventId);
     if (!ev) throw new Error(`Unknown event: ${eventId}`);
     if (optionIndex < 0 || optionIndex >= ev.options.length) throw new Error('Invalid option');
@@ -310,6 +357,10 @@ export class RunService {
       applied.push({ type: eff.type, value: eff.value });
     }
 
+    run.pendingEvent = null;
+    run.markModified('pendingEvent');
+    this.gainXp(run, 1);
+    this.advanceHour(run);
     await run.save();
     return { run: toRunState(run), effects: applied };
   }
@@ -437,18 +488,50 @@ export class RunService {
     }
   }
 
+  private tierPickWeight(level: number, tier: string): number {
+    if (level < 3) return tier === 'bronze' ? 1 : 0;
+    if (level < 5) {
+      if (tier === 'bronze') return 0.55;
+      if (tier === 'silver') return 0.45;
+      return 0;
+    }
+    if (level < 8) {
+      if (tier === 'bronze') return 0.32;
+      if (tier === 'silver') return 0.33;
+      if (tier === 'gold') return 0.25;
+      if (tier === 'diamond') return 0.1;
+      return 0;
+    }
+    if (tier === 'bronze') return 0.18;
+    if (tier === 'silver') return 0.22;
+    if (tier === 'gold') return 0.3;
+    if (tier === 'diamond') return 0.28;
+    if (tier === 'legendary') return 0.02;
+    return 0;
+  }
+
   private generateShopItems(level: number): string[] {
-    const all = Array.from(ITEMS_MAP.values());
-    const weighted = all.filter(i => {
+    const all = Array.from(ITEMS_MAP.values()).filter(i => !i.itemId.startsWith('__'));
+    const pool = all.filter(i => {
       if (level < 3) return i.baseTier === 'bronze';
       if (level < 5) return i.baseTier === 'bronze' || i.baseTier === 'silver';
+      if (level < 8) return i.baseTier !== 'legendary';
       return true;
     });
-    const result: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      result.push(weighted[Math.floor(Math.random() * weighted.length)].itemId);
-    }
-    return result;
+    const base = pool.length > 0 ? pool : all;
+    const pickOne = (): string => {
+      const weighted = base
+        .map(i => ({ i, w: this.tierPickWeight(level, i.baseTier) }))
+        .filter(x => x.w > 0);
+      const sum = weighted.reduce((s, x) => s + x.w, 0);
+      let r = Math.random() * (sum || 1);
+      for (const x of weighted) {
+        r -= x.w;
+        if (r <= 0) return x.i.itemId;
+      }
+      return weighted[0]?.i.itemId ?? base[Math.floor(Math.random() * base.length)].itemId;
+    };
+    return [pickOne(), pickOne(), pickOne()];
   }
 
   private randomItemByTier(tier: string): string {
@@ -492,11 +575,12 @@ export class RunService {
   private generateAiOpponent(level: number, day: number) {
     const hero = HEROES[Math.floor(Math.random() * HEROES.length)];
     const hp = hero.baseHp + hero.hpPerLevel * (level - 1);
+    const tierIdx = Math.min(Math.floor((level * 1.2 + day) / 4), 4);
+    const tiers = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
+    const tier = tiers[Math.min(tierIdx, tiers.length - 1)];
     const board: SlotItem[] = hero.startingItems.map((itemId, i) => {
       const cfg = ITEMS_MAP.get(itemId)!;
-      const tierIdx = Math.min(Math.floor(day / 3), 3);
-      const tiers = ['bronze', 'silver', 'gold', 'diamond'] as const;
-      return { itemId, tier: tiers[tierIdx], size: cfg.size, slotIndex: i };
+      return { itemId, tier, size: cfg.size, slotIndex: i };
     });
     return { heroId: hero.heroId, level, board, hp, maxHp: hp };
   }

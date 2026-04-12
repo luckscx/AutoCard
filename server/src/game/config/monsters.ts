@@ -10,6 +10,7 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 5,
     xpReward: 1,
     goldReward: 3,
+    battleBoard: [{ itemId: 'poison_dagger', slotIndex: 0 }],
     lootTable: [
       { itemId: 'health_potion', chance: 0.4 },
     ],
@@ -22,6 +23,10 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 8,
     xpReward: 1,
     goldReward: 4,
+    battleBoard: [
+      { itemId: 'poison_dagger', slotIndex: 0 },
+      { itemId: 'venom_vial', slotIndex: 1 },
+    ],
     lootTable: [
       { itemId: 'swift_boots', chance: 0.2 },
     ],
@@ -36,6 +41,10 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 12,
     xpReward: 2,
     goldReward: 6,
+    battleBoard: [
+      { itemId: 'fire_wand', slotIndex: 0 },
+      { itemId: 'energy_crystal', slotIndex: 1 },
+    ],
     lootTable: [
       { itemId: 'energy_crystal', chance: 0.35 },
       { itemId: 'fire_wand', chance: 0.15 },
@@ -49,6 +58,11 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 10,
     xpReward: 2,
     goldReward: 5,
+    battleBoard: [
+      { itemId: 'shield_plate', slotIndex: 0 },
+      { itemId: 'thorns_ring', slotIndex: 1 },
+      { itemId: 'war_axe', slotIndex: 2 },
+    ],
     lootTable: [
       { itemId: 'shield_plate', chance: 0.3 },
       { itemId: 'thorns_ring', chance: 0.2 },
@@ -64,6 +78,7 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 20,
     xpReward: 3,
     goldReward: 10,
+    battleBoard: [{ itemId: 'inferno_staff', slotIndex: 0, tier: 'silver' }],
     lootTable: [
       { itemId: 'inferno_staff', chance: 0.15 },
       { itemId: 'giants_club', chance: 0.1 },
@@ -78,6 +93,11 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 25,
     xpReward: 3,
     goldReward: 8,
+    battleBoard: [
+      { itemId: 'frost_orb', slotIndex: 0 },
+      { itemId: 'arcane_tome', slotIndex: 2, tier: 'silver' },
+      { itemId: 'holy_staff', slotIndex: 5 },
+    ],
     lootTable: [
       { itemId: 'arcane_tome', chance: 0.2 },
       { itemId: 'frost_orb', chance: 0.25 },
