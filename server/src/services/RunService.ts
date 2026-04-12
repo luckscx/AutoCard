@@ -31,6 +31,9 @@ function toRunState(doc: IRun): RunState {
     stash: doc.stash,
     shopRefreshed: doc.shopRefreshed,
     pendingEvent: doc.pendingEvent ?? undefined,
+    income: doc.income,
+    hpRegen: doc.hpRegen,
+    goldGainBonus: doc.goldGainBonus,
   };
 }
 
@@ -63,6 +66,9 @@ export class RunService {
       board: startingBoard,
       stash: [],
       shopItems: [],
+      income: 0,
+      hpRegen: 0,
+      goldGainBonus: 0,
     });
 
     return toRunState(run);
@@ -149,7 +155,9 @@ export class RunService {
     battleResult.goldGained = monster.goldReward;
 
     run.hp = battleResult.hpLeft;
-    run.gold += monster.goldReward;
+    const actualGold = this.applyGoldGain(run, monster.goldReward);
+    run.gold += actualGold;
+    battleResult.goldGained = actualGold;
     this.gainXp(run, monster.xpReward);
 
     if (battleResult.won) {
@@ -169,6 +177,7 @@ export class RunService {
       }
     }
 
+    if (run.hpRegen > 0) run.hp = Math.min(run.maxHp, run.hp + run.hpRegen);
     this.advanceHour(run);
     await run.save();
 
@@ -242,7 +251,9 @@ export class RunService {
       snapshots: result.snapshots,
     };
 
-    run.gold += battleResult.goldGained;
+    const actualPvpGold = this.applyGoldGain(run, battleResult.goldGained);
+    battleResult.goldGained = actualPvpGold;
+    run.gold += actualPvpGold;
     this.gainXp(run, 1);
 
     if (won) {
@@ -258,6 +269,9 @@ export class RunService {
       }
     }
 
+    if (run.hpRegen > 0) run.hp = Math.min(run.maxHp, run.hp + run.hpRegen);
+    // hpRegen 结算：战后回血
+    if (run.hpRegen > 0) run.hp = Math.min(run.maxHp, run.hp + run.hpRegen);
     this.advanceHour(run);
     await run.save();
 
@@ -328,7 +342,13 @@ export class RunService {
 
     for (const eff of effects) {
       switch (eff.type) {
-        case 'gold': run.gold = Math.max(0, run.gold + (eff.value as number)); break;
+        case 'gold': {
+          const goldValue = eff.value as number;
+          // goldGainBonus 只加成正向金币获取，扣金币不加成
+          const goldAmount = goldValue > 0 ? this.applyGoldGain(run, goldValue) : goldValue;
+          run.gold = Math.max(0, run.gold + goldAmount);
+          break;
+        }
         case 'xp': this.gainXp(run, eff.value as number); break;
         case 'hp': run.hp = Math.min(run.maxHp, Math.max(1, run.hp + (eff.value as number))); break;
         case 'item': {
@@ -486,9 +506,17 @@ export class RunService {
     if (run.hour > HOURS_PER_DAY) {
       run.hour = 1;
       run.day += 1;
+      // income 结算：每天开始获得金币
+      if (run.income > 0) {
+        run.gold += run.income;
+      }
       // 每天回复部分 HP
       run.hp = Math.min(run.maxHp, run.hp + Math.floor(run.maxHp * 0.2));
     }
+  }
+
+  private applyGoldGain(run: IRun, base: number): number {
+    return base + (run.goldGainBonus ?? 0);
   }
 
   private tierPickWeight(level: number, tier: string): number {

@@ -11,6 +11,7 @@ const TIER_COLORS: Record<string, number> = {
   silver: 0xc0c0c0,
   gold: 0xffd700,
   diamond: 0x00ffff,
+  legendary: 0xff44ff,
 };
 
 export class SlotGrid extends Container {

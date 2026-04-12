@@ -89,7 +89,18 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
   function getOpponent(side: BattleSide): SideState { return side === 'player' ? enemy : player; }
   function oppSide(side: BattleSide): BattleSide { return side === 'player' ? 'enemy' : 'player'; }
 
-  function applyEffect(tick: number, portType: string, value: number, sourceSide: BattleSide, sourceSlotIndex: number, cfg: ItemConfig) {
+  // ---------------------------------------------------------------------------
+  // 修复 3: 增加 isCrit 参数，damage 事件带 crit 标记
+  // ---------------------------------------------------------------------------
+  function applyEffect(
+    tick: number,
+    portType: string,
+    value: number,
+    sourceSide: BattleSide,
+    sourceSlotIndex: number,
+    cfg: ItemConfig,
+    isCrit = false,
+  ) {
     const self = getSide(sourceSide);
     const opp = getOpponent(sourceSide);
     const oppS = oppSide(sourceSide);
@@ -99,7 +110,8 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
         const real = Math.max(0, value - opp.shield);
         opp.shield = Math.max(0, opp.shield - value);
         opp.hp -= real;
-        events.push({ tick, type: 'damage', value: real, targetSide: oppS });
+        // 修复 3: 将 crit 信息写入 damage 事件
+        events.push({ tick, type: 'damage', value: real, targetSide: oppS, ...(isCrit ? { crit: true } : {}) });
         break;
       }
       case 'poison': {
@@ -113,7 +125,9 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
         break;
       }
       case 'destroy': {
-        const resolved = resolveTarget(cfg.targetRule, opp.board, sourceSlotIndex);
+        // 修复 1: 对敌方棋盘调用 resolveTarget 时，传 -1 作为 selfSlotIndex，
+        // 避免跨棋盘索引污染（不应把己方 slotIndex 当做对方排除位置）
+        const resolved = resolveTarget(cfg.targetRule, opp.board, -1);
         const targetIndices = resolved.slotIndices.length > 0 ? resolved.slotIndices :
           opp.board.length > 0 ? [opp.board[0].slotIndex] : [];
         for (const idx of targetIndices) {
@@ -143,24 +157,51 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
         const isOffensive = portType === 'slow' || portType === 'freeze';
         const targetSideState = isOffensive ? opp : self;
         const targetBoard = isOffensive ? opp.board : self.board;
-        const resolved = resolveTarget(cfg.targetRule, targetBoard, sourceSlotIndex);
+        // 修复 1: 对敌方棋盘（slow/freeze）调用时传 -1，避免跨棋盘索引污染
+        const resolveIdx = isOffensive ? -1 : sourceSlotIndex;
+        const resolved = resolveTarget(cfg.targetRule, targetBoard, resolveIdx);
         const indices = resolved.slotIndices;
+        const evtSide = isOffensive ? oppS : sourceSide;
 
         for (const idx of indices) {
           const cs = getCardState(targetSideState, idx);
           if (!cs || cs.destroyed) continue;
-          if (portType === 'haste') cs.hasteRemain += value;
-          else if (portType === 'slow') cs.slowRemain += value;
-          else if (portType === 'freeze') cs.freezeRemain += value;
-          else if (portType === 'charge') {
+          if (portType === 'haste') {
+            cs.hasteRemain += value;
+          } else if (portType === 'slow') {
+            cs.slowRemain += value;
+          } else if (portType === 'freeze') {
+            cs.freezeRemain += value;
+          } else if (portType === 'charge') {
             cs.cooldownProgress += value;
+            // 修复 2: charge 过充后立即触发
+            triggerCardIfReady(cs, sourceSide, tick, targetSideState);
           }
         }
 
-        const evtSide = isOffensive ? oppS : sourceSide;
         events.push({ tick, type: portType as BattleEvent['type'], value, targetSide: evtSide, targetSlotIndices: indices } as BattleEvent);
         break;
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 修复 2: 抽出内联函数，处理 charge 过充立即触发（闭包访问 player/enemy/events）
+  // ---------------------------------------------------------------------------
+  function triggerCardIfReady(cs: CardRuntimeState, side: BattleSide, tick: number, s: SideState) {
+    const cfg = getItemConfig(s.board, cs.slotIndex);
+    if (!cfg) return;
+    while (cs.cooldownProgress >= cfg.cooldown && !cs.destroyed) {
+      cs.cooldownProgress -= cfg.cooldown;
+      events.push({ tick, type: 'card_trigger', side, slotIndex: cs.slotIndex });
+      const tierMul = getTierMul(s.board, cs.slotIndex);
+      for (const port of cfg.ports) {
+        // 修复 3: 暴击判定
+        const isCrit = cfg.critRate != null && cfg.critRate > 0 && Math.random() * 100 < cfg.critRate;
+        const value = Math.round(port.value * tierMul * (isCrit ? 2 : 1));
+        applyEffect(tick, port.type, value, side, cs.slotIndex, cfg, isCrit);
+      }
+      if (player.hp <= 0 || enemy.hp <= 0) return;
     }
   }
 
@@ -188,14 +229,16 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
 
       cs.cooldownProgress += chargeRate;
 
+      // 修复 3: 暴击判定在此处（processSide 的正常触发路径）
       while (cs.cooldownProgress >= cfg.cooldown && !cs.destroyed) {
         cs.cooldownProgress -= cfg.cooldown;
         events.push({ tick, type: 'card_trigger', side, slotIndex: cs.slotIndex });
 
         const tierMul = getTierMul(s.board, cs.slotIndex);
         for (const port of cfg.ports) {
-          const value = Math.round(port.value * tierMul);
-          applyEffect(tick, port.type, value, side, cs.slotIndex, cfg);
+          const isCrit = cfg.critRate != null && cfg.critRate > 0 && Math.random() * 100 < cfg.critRate;
+          const value = Math.round(port.value * tierMul * (isCrit ? 2 : 1));
+          applyEffect(tick, port.type, value, side, cs.slotIndex, cfg, isCrit);
         }
 
         if (player.hp <= 0 || enemy.hp <= 0) return;

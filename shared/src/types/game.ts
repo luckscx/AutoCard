@@ -57,6 +57,9 @@ export interface RunState {
   stash: SlotItem[];
   shopRefreshed?: boolean;
   pendingEvent?: PendingEventState | null;
+  income?: number;         // 默认 0，每天开始时自动获得的金币
+  hpRegen?: number;        // 默认 0，每场战斗结束后自动回复 HP
+  goldGainBonus?: number;  // 默认 0，所有金币获取来源的额外加成量
 }
 
 export interface PvpMirrorSnapshot {

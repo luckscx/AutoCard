@@ -18,6 +18,7 @@ export interface ItemConfig {
   cooldown: number;
   ports: Port[];
   targetRule: TargetRule;
+  critRate?: number;
   tags: string[];
   sourceHero?: string;
   image?: string;

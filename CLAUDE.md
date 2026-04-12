@@ -1,72 +1,63 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+AutoCard 项目的 Claude Code 主指引。
 
-## Project Overview
+## 项目概述
 
-AutoCard is an asynchronous PvP roguelike deck-building auto-battler game. Frontend uses Pixi.js (WebGL 2D) + TypeScript + Vite. Backend uses Node.js + Express + TypeScript + MongoDB/Mongoose. Documentation and comments are in Chinese.
+AutoCard 是一款异步 PvP Roguelike 卡牌自走棋游戏。玩家每天经历 6 个小时：前几小时选择购物/事件/礼物，第 3 小时 PvE 野怪，第 6 小时 PvP 镜像对战。目标：在声望（起始 20）归零前累计 10 场 PvP 胜利。
 
-## Build & Development Commands
+**技术栈**：前端 Pixi.js + TypeScript + Vite；后端 Node.js + Express + TypeScript + MongoDB/Mongoose。文档和注释使用中文。
+
+## 开发命令
 
 ```bash
-npm install                 # Install all workspaces
-npm run dev                 # Start server + client concurrently
-npm run dev:server          # Server only (tsx watch, port 3000)
-npm run dev:client          # Client only (Vite, port 5173, proxies /api to :3000)
-npm run build:shared        # Compile shared types (must run after changing shared/)
-npm run build               # Full production build: shared → server → client
+npm install                 # 安装所有 workspace 依赖
+npm run dev                 # 同时启动 server + client
+npm run dev:server          # 仅服务端 (tsx watch, port 3000)
+npm run dev:client          # 仅客户端 (Vite, port 5173, 代理 /api → :3000)
+npm run build:shared        # 编译共享类型（修改 shared/ 后必须执行）
+npm run build               # 完整生产构建: shared → server → client
 ```
 
-MongoDB must be running locally (default: `mongodb://localhost:27017/autocard`). Server env configured in `server/.env`.
+MongoDB 须在本地运行（默认 `mongodb://localhost:27017/autocard`）。服务端环境变量配置在 `server/.env`。
 
-**No test framework or linter is currently configured.**
+## Monorepo 结构
 
-## Monorepo Structure
+三个 npm workspace：`shared/`、`server/`、`client/`。全部使用 ESM（`"type": "module"`）+ TypeScript strict 模式。
 
-Three npm workspaces: `shared/`, `server/`, `client/`. All use ESM (`"type": "module"`) and TypeScript strict mode. TypeScript base config in `tsconfig.base.json` (ES2022, moduleResolution: bundler).
+- **shared/** — 类型定义与常量，以 `@autocard/shared` 导入。修改后需 `npm run build:shared`
+- **server/** — Express 后端
+- **client/** — Pixi.js 前端
 
-- **shared/** — Types (`types/game.ts`, `types/config.ts`, `types/api.ts`) and constants (`constants.ts`). Imported as `@autocard/shared`. Must run `npm run build:shared` after changes.
-- **server/** — Express backend. Entry: `src/index.ts`.
-  - `models/` — Mongoose schemas (User, Run, PvpMirror)
-  - `api/` — Route handlers (`run.ts` for game endpoints, `config.ts` for static data)
-  - `services/RunService.ts` — Core game logic orchestrator (state transitions, battles, purchases, leveling)
-  - `game/battle/engine.ts` — Deterministic tick-based battle simulation
-  - `game/battle/resolveTarget.ts` — Target rule resolution (adjacency, position)
-  - `game/config/` — Static game data: heroes, items, bazaar_items, monsters, events
-- **client/** — Pixi.js frontend. Entry: `src/main.ts`.
-  - `core/GameState.ts` — Singleton game state store; all UI reads from here
-  - `core/SceneManager.ts` — Scene lifecycle (register → goto → cleanup)
-  - `scenes/` — LobbyScene, MainScene, ShopScene, BattleScene
-  - `ui/` — Reusable components (CardView, BoardRow, SlotGrid, Button, Panel)
-  - `api/client.ts` — Fetch wrapper with auth headers
+## 核心架构
 
-## Architecture
+- **API Contract**：所有请求/响应类型定义在 `shared/src/types/api.ts`，前后端共用
+- **战斗引擎**：纯函数，确定性 tick 模拟（100ms/tick，最长 40s），输出事件流 + 快照供前端回放
+- **端口卡牌系统**：卡牌由端口（伤害/毒/灼烧/治疗/护盾/加速/充能…）定义，支持组合连锁效果
 
-**API Contract Pattern**: All request/response types defined in `shared/src/types/api.ts`. Both server and client import from `@autocard/shared`.
+## Subagent 工作划分
 
-**Scene-Based UI**: Each scene extends Pixi `Container` with `onEnter(data?)` / `onExit()` lifecycle. SceneManager handles transitions: `sm.goto('battle', { opponent, battleId })`.
+**遇到以下任务，直接路由给对应 subagent，不要自己动手：**
 
-**Centralized Game State**: `gameState` singleton holds current run + config. Updated from API responses.
+| 任务类型 | Subagent |
+|---------|---------|
+| 前端场景、UI 组件、布局、动画、交互 | `pixi-ui` |
+| Express 路由、RunService 业务逻辑、Mongoose 模型、API 契约 | `api-service` |
+| 卡牌/英雄/怪物/事件/集市物品等游戏配置数据 | `game-config` |
+| 战斗引擎逻辑、tick 模拟、效果处理、目标解析 | `battle-engine` |
 
-**Battle Engine**: Pure function — same input always produces same output. Tick-based simulation (100ms ticks, max 40s). Logs events array for client replay animation. Overtime damage after 20s.
+## 代码约定
 
-**Port-Based Card System**: Cards defined by ports (output/operational/defense), each with category, type, value, and target rules (self, adjacent, leftmost, rightmost, all, position). Composite effects enable card chaining.
+- 相对路径 ESM 导入须带 `.js` 后缀（如 `from '../models/User.js'`）
+- 跨 workspace 用 `@autocard/shared`
+- 命名：`*Scene.ts` / `*View.ts` / `*Service.ts`
+- 所有游戏常量集中在 `shared/src/constants.ts`
+- API 错误统一抛异常，由 `wrap()` 中间件捕获 → `{ error: message }`
 
-**Game Loop**: 6 hours per day. Hours 1,2,4,5 = choices (shop/event/gift). Hour 3 = PvE battle. Hour 6 = PvP mirror match. Win condition: 10 PvP wins before prestige (starts at 20) reaches 0.
+## 补充文档
 
-## Code Conventions
-
-- ESM imports require `.js` extension in relative paths (e.g., `import { ... } from '../models/User.js'`)
-- Cross-workspace imports use `@autocard/shared`
-- Naming: `*Scene.ts` for scenes, `*View.ts` for UI components, `*Service.ts` for services
-- All game constants in `shared/src/constants.ts` (XP_PER_LEVEL, BOARD_SIZE, TIER_MULTIPLIER, etc.)
-- API errors thrown as exceptions, caught by `wrap()` middleware → `{ error: message }`
-- Mongoose timestamps (createdAt, updatedAt) auto-managed; composite index on `(userId, status)`
-
-## Additional Documentation
-
-- `Core.md` — Game design keywords and core mechanics (Chinese)
-- `docs/战斗逻辑.md` — Battle system detailed design
-- `docs/核心编码框架设计.md` — Architecture and design patterns
-- `docs/开发文档.md` — Development guide
-- `docs/Meta构筑.md` — Meta build strategies
+- `Core.md` — 游戏设计关键词与核心机制
+- `docs/战斗逻辑.md` — 战斗系统详细设计
+- `docs/核心编码框架设计.md` — 架构与设计模式
+- `docs/开发文档.md` — 开发指南
+- `docs/Meta构筑.md` — Meta 构筑策略

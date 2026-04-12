@@ -19,6 +19,9 @@ export interface IRun extends Document {
   shopItems: string[];
   shopRefreshed: boolean;
   pendingEvent?: PendingEventState | null | undefined;
+  income: number;
+  hpRegen: number;
+  goldGainBonus: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +62,9 @@ const RunSchema = new Schema<IRun>({
   shopItems: { type: [String], default: [] },
   shopRefreshed: { type: Boolean, default: false },
   pendingEvent: { type: PendingEventSchema, default: null },
+  income: { type: Number, default: 0 },
+  hpRegen: { type: Number, default: 0 },
+  goldGainBonus: { type: Number, default: 0 },
 }, { timestamps: true });
 
 RunSchema.index({ userId: 1, status: 1 });
