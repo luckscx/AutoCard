@@ -3,6 +3,7 @@ import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js';
 import { BoardRow } from '../ui/BoardRow.js';
 import { BottomBar } from '../ui/BottomBar.js';
+import { MenuView } from '../ui/MenuView.js';
 import { api } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import {
@@ -22,6 +23,7 @@ export class MainScene extends Scene {
   private z1Content!: Container;
   private z2Content!: Container;
   private sellHint!: Container;
+  private menuView!: MenuView;
   private stashOpen = false;
 
   constructor(sm: SceneManager) {
@@ -82,8 +84,8 @@ export class MainScene extends Scene {
     boardLabel.y = Z3_LABEL_Y;
     this.addChild(boardLabel);
 
-    const boardSlots = run.boardSlots ?? 10;
-    this.boardRow = new BoardRow(boardSlots);
+    const boardSlots = run.boardSlots ?? 4;
+    this.boardRow = new BoardRow(boardSlots, 10);
     this.boardRow.x = INNER_X;
     this.boardRow.y = Z3_CARD_Y;
     this.boardRow.containerType = 'board';
@@ -96,7 +98,7 @@ export class MainScene extends Scene {
     this.addChild(this.boardRow);
 
     // 储物箱行（放在 Z2 内部，初始隐藏）
-    this.stashRow = new BoardRow(10);
+    this.stashRow = new BoardRow(10, 10);
     this.stashRow.x = INNER_X;
     this.stashRow.y = Z2_CARD_Y + 20;
     this.stashRow.containerType = 'stash';
@@ -115,12 +117,65 @@ export class MainScene extends Scene {
     this.bottomBar.onStashToggle = () => this.toggleStash();
     this.addChild(this.bottomBar);
 
+    // ---- 菜单按钮（Z1 右上角）----
+    this.menuView = new MenuView();
+    this.menuView.onRestart = () => this.handleRestart();
+    this.addChild(this.menuView);
+
+    // 菜单触发按钮
+    this.buildMenuButton();
+
     // ---- 填充 Z1 & Z2 内容 ----
     this.renderZ1();
     this.renderZ2();
   }
 
   // ====== Z1 顶栏 ======
+
+  /** 构建右上角菜单汉堡按钮，固定不随 Z1 内容刷新 */
+  private buildMenuButton() {
+    const MENU_BTN_W = 64;
+    const MENU_BTN_H = 34;
+    const btn = new Container();
+    btn.eventMode = 'static';
+    btn.cursor = 'pointer';
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, MENU_BTN_W, MENU_BTN_H, 8);
+    bg.fill({ color: 0x2a4060, alpha: 0.92 });
+    bg.stroke({ color: 0x4a90d9, width: 1 });
+    btn.addChild(bg);
+
+    // 汉堡图标三横线
+    const lines = [8, 14, 20];
+    for (const lineY of lines) {
+      const line = new Graphics();
+      line.rect(10, lineY, 44, 2);
+      line.fill(0xffffff);
+      btn.addChild(line);
+    }
+
+    // "菜单" 文字（可选，置于三线右侧）
+    const label = new Text({
+      text: '菜单',
+      style: { fill: '#ccddee', fontSize: 11, fontFamily: 'Arial' },
+    });
+    label.x = MENU_BTN_W / 2;
+    label.y = MENU_BTN_H - 10;
+    label.anchor.set(0.5, 1);
+    btn.addChild(label);
+
+    btn.x = W - SIDE_PAD - MENU_BTN_W;
+    btn.y = Z1_Y + (Z1_H - MENU_BTN_H) / 2;
+
+    btn.on('pointerover', () => { bg.tint = 0xbbccdd; });
+    btn.on('pointerout', () => { bg.tint = 0xffffff; });
+    btn.on('pointertap', () => {
+      this.menuView.show();
+    });
+
+    this.addChild(btn);
+  }
 
   private renderZ1() {
     this.z1Content.removeChildren();
@@ -311,12 +366,12 @@ export class MainScene extends Scene {
 
   private refresh() {
     const run = gameState.run!;
-    const newBoardSlots = run.boardSlots ?? 10;
+    const newBoardSlots = run.boardSlots ?? 4;
 
-    // 若格数变化，重建棋盘行（避免格子数量不匹配）
+    // 若解锁格数变化，重建棋盘行（activeSlots 不同则外观也需更新）
     if (this.boardRow.slotCount !== newBoardSlots) {
       this.removeChild(this.boardRow);
-      this.boardRow = new BoardRow(newBoardSlots);
+      this.boardRow = new BoardRow(newBoardSlots, 10);
       this.boardRow.x = INNER_X;
       this.boardRow.y = Z3_CARD_Y;
       this.boardRow.containerType = 'board';
@@ -389,6 +444,22 @@ export class MainScene extends Scene {
     } catch (e: any) {
       console.error('Merge failed:', e.message);
       alert(e.message || '合成失败');
+    }
+  }
+
+  // ====== 重开本局 ======
+
+  private async handleRestart() {
+    try {
+      const run = gameState.run;
+      if (!run) return;
+      // 使用当前英雄重新开始一局
+      const result = await api.restartRun(run.heroId);
+      gameState.setRun(result.run);
+      await this.sm.goto('main');
+    } catch (e: any) {
+      console.error('重开失败:', e.message);
+      alert(e.message || '重开游戏失败，请重试');
     }
   }
 

@@ -1,5 +1,5 @@
 import type {
-  StartRunResponse, GetRunResponse,
+  StartRunResponse, RestartRunResponse, GetRunResponse,
   HourChoiceResponse, PveResponse, PvpResponse,
   PlaceItemResponse, MergeItemResponse,
   BuyItemResponse, RefreshShopResponse, LeaveShopResponse, EventChoiceResponse,
@@ -42,6 +42,7 @@ async function request<T>(method: string, path: string, body?: any, retries = 3)
 
 export const api = {
   startRun: (heroId: string) => request<StartRunResponse>('POST', '/run/start', { heroId }),
+  restartRun: (heroId: string) => request<RestartRunResponse>('POST', '/run/restart', { heroId }),
   getCurrentRun: () => request<GetRunResponse>('GET', '/run/current'),
 
   hourChoice: (runId: string, choice: 'shop' | 'event' | 'gift') =>
