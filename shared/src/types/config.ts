@@ -20,6 +20,7 @@ export interface ItemConfig {
   targetRule: TargetRule;
   critRate?: number;
   tags: string[];
+  kinds?: string[];   // Kind 类型标签，用于 Kind 被动系统
   sourceHero?: string;
   image?: string;
   categories?: string[];

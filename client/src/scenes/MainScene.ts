@@ -82,7 +82,8 @@ export class MainScene extends Scene {
     boardLabel.y = Z3_LABEL_Y;
     this.addChild(boardLabel);
 
-    this.boardRow = new BoardRow(10);
+    const boardSlots = run.boardSlots ?? 10;
+    this.boardRow = new BoardRow(boardSlots);
     this.boardRow.x = INNER_X;
     this.boardRow.y = Z3_CARD_Y;
     this.boardRow.containerType = 'board';
@@ -155,6 +156,13 @@ export class MainScene extends Scene {
     }
 
     this.stashRow.visible = false;
+
+    // P3 新增：优先处理升级三选一
+    if (run.pendingLevelUp) {
+      this.showLevelUpChoices(run.id, run.pendingLevelUp);
+      return;
+    }
+
     const hourType = HOUR_TYPE[run.hour as keyof typeof HOUR_TYPE];
 
     if (hourType === 'choice') {
@@ -173,6 +181,40 @@ export class MainScene extends Scene {
   private toggleStash() {
     this.stashOpen = !this.stashOpen;
     this.renderZ2();
+  }
+
+  private showLevelUpChoices(
+    runId: string,
+    pending: { level: number; choices: { label: string; kind: string }[] }
+  ) {
+    // 标题
+    const title = new Text({
+      text: `升至 Lv.${pending.level}！选择奖励`,
+      style: { fill: '#ffd700', fontSize: 16, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    title.x = INNER_X;
+    title.y = Z2_LABEL_Y;
+    this.z2Content.addChild(title);
+
+    // 三个选项按钮，横排
+    const btnColors = [0x4a90d9, 0x4ad97a, 0xd9704a];
+    pending.choices.forEach((choice, i) => {
+      const btn = new Button(choice.label, 270, 56, btnColors[i] ?? 0x4a90d9);
+      btn.x = INNER_X + i * 300;
+      btn.y = Z2_CARD_Y + 40;
+      btn.on('pointertap', async () => {
+        try {
+          const result = await api.levelUpChoice(runId, i);
+          gameState.setRun(result.run);
+          this.refresh();
+          this.renderZ2();
+        } catch (e: any) {
+          console.error('levelup choice failed:', e.message);
+          alert(e.message || '升级选择失败');
+        }
+      });
+      this.z2Content.addChild(btn);
+    });
   }
 
   // ====== 拖拽处理 ======
@@ -269,6 +311,23 @@ export class MainScene extends Scene {
 
   private refresh() {
     const run = gameState.run!;
+    const newBoardSlots = run.boardSlots ?? 10;
+
+    // 若格数变化，重建棋盘行（避免格子数量不匹配）
+    if (this.boardRow.slotCount !== newBoardSlots) {
+      this.removeChild(this.boardRow);
+      this.boardRow = new BoardRow(newBoardSlots);
+      this.boardRow.x = INNER_X;
+      this.boardRow.y = Z3_CARD_Y;
+      this.boardRow.containerType = 'board';
+      this.boardRow.onSwap = (item, slot) => this.handleSwap(item, slot, 'board');
+      this.boardRow.onDragOut = (item, gx, gy) => this.handleBoardDragOut(item, gx, gy);
+      this.boardRow.onDragging = (item, gx, gy) => this.handleBoardDragging(item, gx, gy);
+      this.boardRow.onDragStop = () => this.handleDragCleanup();
+      this.boardRow.onMerge = (a, b) => this.handleMerge(a, b, 'board');
+      this.addChild(this.boardRow);
+    }
+
     this.boardRow.update(run.board);
     this.stashRow.update(run.stash);
     this.bottomBar.update(run);
@@ -421,6 +480,7 @@ export class MainScene extends Scene {
             result: result.battle,
             monsterName: result.monster.name,
             playerBoard: boardSnap,
+            opponentBoard: result.monsterBoard,
           });
         } catch (e: any) {
           console.error('pve failed:', e.message);

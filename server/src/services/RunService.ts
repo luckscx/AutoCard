@@ -1,8 +1,8 @@
 import type { Types } from 'mongoose';
 import {
   INITIAL_PRESTIGE, XP_PER_LEVEL, PVP_WINS_TO_WIN,
-  HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel,
-  type RunState, type BattleResult, type SlotItem,
+  HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel, boardSlotsForLevel,
+  type RunState, type BattleResult, type SlotItem, type PendingLevelUpState,
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
 import { PvpMirrorModel } from '../models/PvpMirror.js';
@@ -34,6 +34,8 @@ function toRunState(doc: IRun): RunState {
     income: doc.income,
     hpRegen: doc.hpRegen,
     goldGainBonus: doc.goldGainBonus,
+    boardSlots: doc.boardSlots ?? 4,
+    pendingLevelUp: doc.pendingLevelUp ? (doc.pendingLevelUp as unknown as PendingLevelUpState) : undefined,
   };
 }
 
@@ -69,6 +71,8 @@ export class RunService {
       income: 0,
       hpRegen: 0,
       goldGainBonus: 0,
+      boardSlots: boardSlotsForLevel(1),
+      pendingLevelUp: null,
     });
 
     return toRunState(run);
@@ -181,10 +185,21 @@ export class RunService {
     this.advanceHour(run);
     await run.save();
 
+    // 构建怪物棋盘（与 resolvePveBattle 内部逻辑保持一致）
+    const monsterBoard: SlotItem[] = monster.battleBoard && monster.battleBoard.length > 0
+      ? monster.battleBoard.map(slot => {
+          const cfg = ALL_ITEMS_MAP.get(slot.itemId);
+          return cfg
+            ? { itemId: slot.itemId, tier: (slot.tier ?? cfg.baseTier) as SlotItem['tier'], size: cfg.size as SlotItem['size'], slotIndex: slot.slotIndex }
+            : { itemId: slot.itemId, tier: (slot.tier ?? 'bronze') as SlotItem['tier'], size: 1 as SlotItem['size'], slotIndex: slot.slotIndex };
+        })
+      : [{ itemId: '__monster_attack', tier: 'bronze' as const, size: 1 as const, slotIndex: 0 }];
+
     return {
       run: toRunState(run),
       battle: battleResult,
       monster: { monsterId: monster.monsterId, name: monster.name },
+      monsterBoard,
     };
   }
 
@@ -495,9 +510,79 @@ export class RunService {
       const hero = HEROES.find(h => h.heroId === run.heroId);
       if (hero) {
         run.maxHp += hero.hpPerLevel;
-        run.hp += hero.hpPerLevel;
+        run.hp = Math.min(run.maxHp, run.hp + hero.hpPerLevel);
+      }
+      // 更新 boardSlots（即时生效）
+      run.boardSlots = boardSlotsForLevel(run.level);
+      // 生成升级三选一（如果已有 pending 则跳过，避免覆盖）
+      if (!run.pendingLevelUp) {
+        run.pendingLevelUp = this.generateLevelUpChoices(run);
+        run.markModified('pendingLevelUp');
       }
     }
+  }
+
+  private generateLevelUpChoices(run: IRun): { level: number; choices: { label: string; kind: string }[] } {
+    const canUnlockSlot = run.boardSlots < 10;
+    return {
+      level: run.level,
+      choices: [
+        canUnlockSlot
+          ? { label: '解锁棋盘格（+1格）', kind: 'unlock_slot' }
+          : { label: '生命上限 +5', kind: 'bonus_hp' },
+        { label: '升阶一张卡牌（随机）', kind: 'upgrade_item' },
+        { label: '生命上限 +10，治疗 10', kind: 'bonus_hp_heal' },
+      ],
+    };
+  }
+
+  async handleLevelUpChoice(runId: string, userId: string, choiceIndex: number): Promise<RunState> {
+    const run = await this.getActiveRun(runId, userId);
+    if (!run.pendingLevelUp) throw new Error('没有待处理的升级选择');
+    if (choiceIndex < 0 || choiceIndex >= run.pendingLevelUp.choices.length) {
+      throw new Error('无效的选项索引');
+    }
+
+    const choice = run.pendingLevelUp.choices[choiceIndex];
+    const tierOrder = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
+
+    switch (choice.kind) {
+      case 'unlock_slot': {
+        // boardSlots 已在 gainXp 中更新，此处无需额外操作
+        break;
+      }
+      case 'upgrade_item': {
+        // 从棋盘或储物箱中随机选一张非 legendary 牌升一阶
+        const allItems = [...run.board, ...run.stash];
+        const upgradeable = allItems.filter(i => {
+          const idx = tierOrder.indexOf(i.tier as typeof tierOrder[number]);
+          return idx >= 0 && idx < tierOrder.length - 1;
+        });
+        if (upgradeable.length > 0) {
+          const target = upgradeable[Math.floor(Math.random() * upgradeable.length)];
+          const nextTier = tierOrder[tierOrder.indexOf(target.tier as typeof tierOrder[number]) + 1];
+          target.tier = nextTier;
+          run.markModified('board');
+          run.markModified('stash');
+        }
+        break;
+      }
+      case 'bonus_hp': {
+        run.maxHp += 5;
+        run.hp = Math.min(run.maxHp, run.hp + 5);
+        break;
+      }
+      case 'bonus_hp_heal': {
+        run.maxHp += 10;
+        run.hp = Math.min(run.maxHp, run.hp + 10);
+        break;
+      }
+    }
+
+    run.pendingLevelUp = null;
+    run.markModified('pendingLevelUp');
+    await run.save();
+    return toRunState(run);
   }
 
   private advanceHour(run: IRun) {

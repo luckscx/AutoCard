@@ -116,4 +116,11 @@ router.post('/board/merge', wrap(async (req, res) => {
   res.json(result);
 }));
 
+router.post('/levelup-choice', wrap(async (req, res) => {
+  const userId = await getUserId(req);
+  const { runId, choiceIndex } = req.body;
+  const run = await runService.handleLevelUpChoice(runId, userId, choiceIndex);
+  res.json({ run });
+}));
+
 export { router as runRouter };

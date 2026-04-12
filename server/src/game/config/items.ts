@@ -13,6 +13,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'damage', value: 8 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'melee'],
+    kinds: ['weapon', 'small'],
     sourceHero: 'warrior',
   },
   {
@@ -26,6 +27,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'damage', value: 18 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'melee'],
+    kinds: ['weapon', 'medium'],
     sourceHero: 'warrior',
   },
   {
@@ -39,6 +41,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'haste', value: 1 }],
     targetRule: { kind: 'adjacent' },
     tags: ['accessory'],
+    kinds: ['tool', 'small'],
     sourceHero: 'warrior',
   },
   {
@@ -52,6 +55,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'defense', type: 'shield', value: 10 }],
     targetRule: { kind: 'self' },
     tags: ['armor'],
+    kinds: ['apparel', 'shield', 'small'],
     sourceHero: 'warrior',
   },
 
@@ -67,6 +71,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'burn', value: 6 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'magic'],
+    kinds: ['weapon', 'burn', 'small'],
     sourceHero: 'mage',
   },
   {
@@ -80,6 +85,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'freeze', value: 2 }],
     targetRule: { kind: 'self' },
     tags: ['accessory', 'magic'],
+    kinds: ['relic', 'freeze', 'small'],
     sourceHero: 'mage',
   },
   {
@@ -93,6 +99,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'charge', value: 2 }],
     targetRule: { kind: 'leftmost' },
     tags: ['accessory', 'magic'],
+    kinds: ['relic', 'tool', 'medium'],
     sourceHero: 'mage',
   },
   {
@@ -106,6 +113,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'burn', value: 25 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'magic'],
+    kinds: ['weapon', 'dragon', 'burn', 'large'],
     sourceHero: 'mage',
   },
 
@@ -121,6 +129,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'poison', value: 4 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'melee'],
+    kinds: ['weapon', 'poison', 'small'],
     sourceHero: 'rogue',
   },
   {
@@ -134,6 +143,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'haste', value: 1 }],
     targetRule: { kind: 'all' },
     tags: ['accessory'],
+    kinds: ['apparel', 'small'],
     sourceHero: 'rogue',
   },
   {
@@ -147,6 +157,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'poison', value: 6 }],
     targetRule: { kind: 'adjacent' },
     tags: ['consumable'],
+    kinds: ['potion', 'poison', 'small'],
     sourceHero: 'rogue',
   },
   {
@@ -160,6 +171,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'slow', value: 2 }],
     targetRule: { kind: 'self' },
     tags: ['armor'],
+    kinds: ['apparel', 'medium'],
     sourceHero: 'rogue',
   },
 
@@ -175,6 +187,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'defense', type: 'heal', value: 10 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'magic'],
+    kinds: ['weapon', 'small'],
     sourceHero: 'priest',
   },
   {
@@ -188,6 +201,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'charge', value: 1 }],
     targetRule: { kind: 'adjacent' },
     tags: ['accessory'],
+    kinds: ['relic', 'small'],
     sourceHero: 'priest',
   },
   {
@@ -201,6 +215,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'defense', type: 'shield', value: 20 }],
     targetRule: { kind: 'self' },
     tags: ['armor'],
+    kinds: ['apparel', 'shield', 'medium'],
     sourceHero: 'priest',
   },
   {
@@ -214,6 +229,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'damage', value: 7 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'magic'],
+    kinds: ['weapon', 'small'],
     sourceHero: 'priest',
   },
 
@@ -229,6 +245,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'defense', type: 'heal', value: 15 }],
     targetRule: { kind: 'self' },
     tags: ['consumable'],
+    kinds: ['potion', 'food', 'small'],
   },
   {
     itemId: 'energy_crystal',
@@ -241,6 +258,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'operational', type: 'charge', value: 1 }],
     targetRule: { kind: 'rightmost' },
     tags: ['accessory'],
+    kinds: ['material', 'small'],
   },
   {
     itemId: 'thorns_ring',
@@ -253,6 +271,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'damage', value: 5 }],
     targetRule: { kind: 'self' },
     tags: ['accessory'],
+    kinds: ['relic', 'small'],
   },
   {
     itemId: 'giants_club',
@@ -265,6 +284,7 @@ export const ITEMS: ItemConfig[] = [
     ports: [{ category: 'output', type: 'damage', value: 35 }],
     targetRule: { kind: 'self' },
     tags: ['weapon', 'melee'],
+    kinds: ['weapon', 'large'],
   },
 ];
 

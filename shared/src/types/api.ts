@@ -37,6 +37,7 @@ export interface PveResponse {
   run: RunState;
   battle: BattleResult;
   monster: { monsterId: string; name: string };
+  monsterBoard: SlotItem[];   // 怪物实际使用的棋盘
 }
 
 // --- PvP (Hour 6) ---
@@ -119,4 +120,13 @@ export interface EventChoiceRequest {
 export interface EventChoiceResponse {
   run: RunState;
   effects: { type: string; value: number | string }[];
+}
+
+// --- Level-Up Choice ---
+export interface LevelUpChoiceRequest {
+  runId: string;
+  choiceIndex: number;
+}
+export interface LevelUpChoiceResponse {
+  run: RunState;
 }

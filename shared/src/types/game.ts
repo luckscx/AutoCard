@@ -39,6 +39,18 @@ export interface PendingEventState {
   options: { label: string }[];
 }
 
+/** 升级三选一中的单个选项 */
+export interface GameLevelUpChoice {
+  label: string;
+  kind: 'unlock_slot' | 'upgrade_item' | 'bonus_hp' | 'bonus_hp_heal';
+}
+
+/** 升级后挂起的三选一状态，完成选择前不推进后续流程 */
+export interface PendingLevelUpState {
+  level: number;
+  choices: GameLevelUpChoice[];
+}
+
 export interface RunState {
   id: string;
   userId: string;
@@ -60,6 +72,8 @@ export interface RunState {
   income?: number;         // 默认 0，每天开始时自动获得的金币
   hpRegen?: number;        // 默认 0，每场战斗结束后自动回复 HP
   goldGainBonus?: number;  // 默认 0，所有金币获取来源的额外加成量
+  boardSlots: number;            // 当前可用棋盘格数（4~10）
+  pendingLevelUp?: PendingLevelUpState | null;
 }
 
 export interface PvpMirrorSnapshot {

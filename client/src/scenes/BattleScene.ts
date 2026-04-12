@@ -23,6 +23,7 @@ interface BattleData {
 }
 
 const PLAYBACK_SPEED = 4;
+const OVERTIME_START_TICK = 200; // 20s * 10 tick/s
 
 export class BattleScene extends Scene {
   private sm: SceneManager;
@@ -43,6 +44,7 @@ export class BattleScene extends Scene {
   private playerStatusText!: Text;
   private enemyStatusText!: Text;
   private floatLayer!: Container;
+  private overtimeWarning!: Container;
   private battleResult!: BattleResult;
   private data!: BattleData;
   private tickLabel!: Text;
@@ -191,6 +193,28 @@ export class BattleScene extends Scene {
     this.floatLayer = new Container();
     this.addChild(this.floatLayer);
 
+    // overtime 警告层（初始隐藏）
+    this.overtimeWarning = new Container();
+    this.overtimeWarning.visible = false;
+
+    // 红色脉冲边框
+    const otBorder = new Graphics();
+    otBorder.rect(2, 2, W - 4, H - 4);
+    otBorder.stroke({ color: 0xff2200, width: 6 });
+    this.overtimeWarning.addChild(otBorder);
+
+    // 中央文字
+    const otText = new Text({
+      text: '加时！全局扣血中',
+      style: { fill: '#ff4400', fontSize: 22, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    otText.anchor.set(0.5);
+    otText.x = W / 2;
+    otText.y = H / 2 - 20;
+    this.overtimeWarning.addChild(otText);
+
+    this.addChild(this.overtimeWarning);
+
     // 初始化HP
     if (snap0) {
       this.playerHpBar.setHp(snap0.player.hp, snap0.player.shield);
@@ -221,6 +245,13 @@ export class BattleScene extends Scene {
     this.currentTick = targetTick;
     this.tickLabel.text = `Tick ${targetTick}`;
     this.syncSnapshot();
+
+    // overtime 边框脉冲动画
+    if (this.overtimeWarning.visible) {
+      const pulseFactor = (Math.sin(this.elapsed * 4) + 1) / 2; // 0~1
+      const border = this.overtimeWarning.children[0] as Graphics;
+      border.alpha = 0.3 + pulseFactor * 0.5; // 0.3 ~ 0.8
+    }
 
     if (this.eventIdx >= this.events.length && !this.resultShown) {
       this.battleDone = true;
@@ -294,6 +325,8 @@ export class BattleScene extends Scene {
       }
       case 'overtime': {
         this.spawnFloat(W / 2, Z1_Y + Z1_H + 4, `加时伤害 -${ev.playerDmg}`, '#ff8800');
+        // 显示 overtime 警告层
+        this.overtimeWarning.visible = true;
         break;
       }
       case 'haste':

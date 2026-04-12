@@ -6,7 +6,8 @@ import { CARD_UNIT, CARD_GAP, CARD_H, cardWidth } from './layout.js';
 import { getTargetRuleHighlightSlots } from './targetSlotPreview.js';
 
 export class BoardRow extends Container {
-  private slotCount: number;
+  private _slotCount: number;
+  get slotCount(): number { return this._slotCount; }
   private bgSlots: Container;
   private slotGlowLayer: Container;
   private cardsLayer: Container;
@@ -33,7 +34,7 @@ export class BoardRow extends Container {
 
   constructor(slotCount = 10) {
     super();
-    this.slotCount = slotCount;
+    this._slotCount = slotCount;
 
     this.bgSlots = new Container();
     this.addChild(this.bgSlots);
@@ -47,7 +48,7 @@ export class BoardRow extends Container {
   }
 
   private drawBgSlots() {
-    for (let i = 0; i < this.slotCount; i++) {
+    for (let i = 0; i < this._slotCount; i++) {
       const g = new Graphics();
       g.roundRect(0, 0, CARD_UNIT, CARD_H, 6);
       g.fill({ color: 0x1a1a2e, alpha: 0.5 });
@@ -80,7 +81,7 @@ export class BoardRow extends Container {
     this.clearSlotTargetGlow();
     const step = CARD_UNIT + CARD_GAP;
     for (const s of unitSlots) {
-      if (s < 0 || s >= this.slotCount) continue;
+      if (s < 0 || s >= this._slotCount) continue;
       const g = new Graphics();
       g.roundRect(0, 0, CARD_UNIT, CARD_H, 6);
       g.fill({ color: 0x3399ff, alpha: 0.38 });
@@ -221,7 +222,7 @@ export class BoardRow extends Container {
   private getSlotAtLocal(localX: number): number {
     const step = CARD_UNIT + CARD_GAP;
     const idx = Math.round(localX / step);
-    if (idx < 0 || idx >= this.slotCount) return -1;
+    if (idx < 0 || idx >= this._slotCount) return -1;
     return idx;
   }
 
@@ -259,6 +260,6 @@ export class BoardRow extends Container {
   }
 
   get totalWidth() {
-    return this.slotCount * (CARD_UNIT + CARD_GAP) - CARD_GAP;
+    return this._slotCount * (CARD_UNIT + CARD_GAP) - CARD_GAP;
   }
 }

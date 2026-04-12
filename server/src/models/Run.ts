@@ -22,6 +22,8 @@ export interface IRun extends Document {
   income: number;
   hpRegen: number;
   goldGainBonus: number;
+  boardSlots: number;
+  pendingLevelUp?: { level: number; choices: { label: string; kind: string }[] } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +67,14 @@ const RunSchema = new Schema<IRun>({
   income: { type: Number, default: 0 },
   hpRegen: { type: Number, default: 0 },
   goldGainBonus: { type: Number, default: 0 },
+  boardSlots: { type: Number, default: 4 },
+  pendingLevelUp: {
+    type: new Schema({
+      level: { type: Number, required: true },
+      choices: [{ label: String, kind: String, _id: false }],
+    }, { _id: false }),
+    default: null,
+  },
 }, { timestamps: true });
 
 RunSchema.index({ userId: 1, status: 1 });

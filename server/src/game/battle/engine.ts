@@ -2,6 +2,7 @@ import type { SlotItem, BattleSide, BattleEvent, BattleSnapshot, CardRuntimeStat
 import { TIER_MULTIPLIER, BATTLE_TICK_MS, BATTLE_OVERTIME_SEC, BATTLE_MAX_SEC } from '@autocard/shared';
 import { ITEMS_MAP } from '../config/index.js';
 import { resolveTarget } from './resolveTarget.js';
+import { applyKindPassives } from './kindPassives.js';
 
 interface Combatant {
   hp: number;
@@ -47,6 +48,10 @@ function getItemConfig(board: SlotItem[], slotIndex: number): ItemConfig | undef
   const slot = board.find(s => s.slotIndex === slotIndex);
   if (!slot) return undefined;
   return ITEMS_MAP.get(slot.itemId);
+}
+
+function getBoardConfigs(board: SlotItem[]): ItemConfig[] {
+  return board.map(s => ITEMS_MAP.get(s.itemId)).filter((c): c is ItemConfig => c != null);
 }
 
 function getTierMul(board: SlotItem[], slotIndex: number): number {
@@ -198,7 +203,9 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
       for (const port of cfg.ports) {
         // 修复 3: 暴击判定
         const isCrit = cfg.critRate != null && cfg.critRate > 0 && Math.random() * 100 < cfg.critRate;
-        const value = Math.round(port.value * tierMul * (isCrit ? 2 : 1));
+        const rawValue = Math.round(port.value * tierMul * (isCrit ? 2 : 1));
+        const boardConfigs = getBoardConfigs(s.board);
+        const value = applyKindPassives(port.type, rawValue, cfg, boardConfigs);
         applyEffect(tick, port.type, value, side, cs.slotIndex, cfg, isCrit);
       }
       if (player.hp <= 0 || enemy.hp <= 0) return;
@@ -237,7 +244,9 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
         const tierMul = getTierMul(s.board, cs.slotIndex);
         for (const port of cfg.ports) {
           const isCrit = cfg.critRate != null && cfg.critRate > 0 && Math.random() * 100 < cfg.critRate;
-          const value = Math.round(port.value * tierMul * (isCrit ? 2 : 1));
+          const rawValue = Math.round(port.value * tierMul * (isCrit ? 2 : 1));
+          const boardConfigs = getBoardConfigs(s.board);
+          const value = applyKindPassives(port.type, rawValue, cfg, boardConfigs);
           applyEffect(tick, port.type, value, side, cs.slotIndex, cfg, isCrit);
         }
 

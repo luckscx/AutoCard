@@ -38,3 +38,27 @@ export const TIER_MULTIPLIER: Record<string, number> = {
 export const BATTLE_TICK_MS = 100;
 export const BATTLE_OVERTIME_SEC = 20;
 export const BATTLE_MAX_SEC = 40;
+
+export const KIND_IDS = [
+  // 主题类别（阵营/流派）
+  'weapon', 'apparel', 'aquatic', 'core', 'dinosaur', 'dragon',
+  'drone', 'food', 'loot', 'potion', 'tool', 'property', 'ray',
+  'relic', 'tech', 'vehicle', 'material', 'ammo', 'toy', 'companion', 'flight',
+  // 特性类别（效果属性标签）
+  'poison', 'burn', 'freeze', 'shield',
+  // 体积类别
+  'small', 'medium', 'large',
+] as const;
+
+export type KindId = typeof KIND_IDS[number];
+
+/**
+ * 每个等级对应的棋盘可用格数（最多 10 格）
+ * level 1→4格, 2→5格, 3→6格, 4→7格, 5→8格, 6→9格, 7+→10格
+ */
+export const BOARD_SLOTS_BY_LEVEL: Record<number, number> = {
+  1: 4, 2: 5, 3: 6, 4: 7, 5: 8, 6: 9,
+};
+export function boardSlotsForLevel(level: number): number {
+  return BOARD_SLOTS_BY_LEVEL[level] ?? 10;
+}
