@@ -15,14 +15,14 @@ export const Z1_H = 100;
 
 // Zone 2: 内容区（储物箱 / 敌方卡牌 / 商店商品 / 选择按钮）
 export const Z2_Y = 106;
-export const Z2_H = 192;
+export const Z2_H = 230;
 
 // Zone 3: 玩家棋盘
-export const Z3_Y = 302;
+export const Z3_Y = 340;
 export const Z3_H = 156;
 
 // Zone 4: 底部信息栏（HP / 金币 / 储物箱按钮）
-export const Z4_Y = 462;
+export const Z4_Y = 500;
 export const Z4_H = 100;
 
 export const SIDE_PAD = 16;

@@ -6,7 +6,10 @@ import {
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
 import { PvpMirrorModel } from '../models/PvpMirror.js';
-import { HEROES, ITEMS_MAP, EVENTS, getMonstersByDifficulty } from '../game/config/index.js';
+import { HEROES, ITEMS_MAP, BAZAAR_ITEMS_MAP, EVENTS, getMonstersByDifficulty } from '../game/config/index.js';
+
+// 合并基础物品与大巴扎物品，大巴扎优先（bazaar 数据更完整）
+const ALL_ITEMS_MAP = new Map([...ITEMS_MAP, ...BAZAAR_ITEMS_MAP]);
 import { resolvePveBattle, resolveBattle } from '../game/battle.js';
 
 function toRunState(doc: IRun): RunState {
@@ -110,7 +113,7 @@ export class RunService {
       };
     }
 
-    const allItems = Array.from(ITEMS_MAP.values()).filter(i => i.baseTier === 'bronze');
+    const allItems = Array.from(ALL_ITEMS_MAP.values()).filter(i => i.baseTier === 'bronze' && i.image);
     const giftCfg = allItems[Math.floor(Math.random() * allItems.length)];
     const freeSlot = this.findFreeSlot(run.stash, giftCfg.size);
     if (freeSlot < 0) throw new Error('储物箱已满，无法领取礼物');
@@ -157,7 +160,7 @@ export class RunService {
       battleResult.loot = loot;
 
       for (const itemId of loot) {
-        const cfg = ITEMS_MAP.get(itemId);
+        const cfg = ALL_ITEMS_MAP.get(itemId);
         if (!cfg) continue;
         const freeSlot = this.findFreeSlot(run.stash, cfg.size);
         if (freeSlot < 0) continue;
@@ -268,7 +271,7 @@ export class RunService {
   // --- Shop ---
   async buyItem(runId: string, userId: string, itemId: string, target: 'board' | 'stash', slotIndex: number) {
     const run = await this.getActiveRun(runId, userId);
-    const cfg = ITEMS_MAP.get(itemId);
+    const cfg = ALL_ITEMS_MAP.get(itemId);
     if (!cfg) throw new Error(`Unknown item: ${itemId}`);
     if (run.gold < cfg.price) throw new Error('Not enough gold');
 
@@ -333,7 +336,7 @@ export class RunService {
           const id = typeof eff.value === 'string' && eff.value.startsWith('random_')
             ? this.randomItemByTier(eff.value.replace('random_', '') as any)
             : eff.value as string;
-          const cfg = ITEMS_MAP.get(id);
+          const cfg = ALL_ITEMS_MAP.get(id);
           if (cfg) {
             const freeSlot = this.findFreeSlot(run.stash, cfg.size);
             if (freeSlot >= 0) {
@@ -396,7 +399,7 @@ export class RunService {
     if (itemIdx < 0) throw new Error('No item at that slot');
 
     const item = container[itemIdx];
-    const cfg = ITEMS_MAP.get(item.itemId);
+    const cfg = ALL_ITEMS_MAP.get(item.itemId);
     const tierMul: Record<string, number> = { bronze: 1, silver: 2, gold: 3, diamond: 5, legendary: 6 };
     const sellPrice = cfg ? Math.max(1, Math.floor(cfg.price * (tierMul[item.tier] ?? 1) * 0.5)) : 1;
 
@@ -511,14 +514,17 @@ export class RunService {
   }
 
   private generateShopItems(level: number): string[] {
-    const all = Array.from(ITEMS_MAP.values()).filter(i => !i.itemId.startsWith('__'));
-    const pool = all.filter(i => {
+    // 从大巴扎物品池中选牌（有图片的优先，保证UI好看）
+    const allBazaar = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => !i.itemId.startsWith('__'));
+    // 优先选有图片的物品，但如果池子不够则 fallback 到全部
+    const withImage = allBazaar.filter(i => i.image);
+    const pool = (withImage.length > 30 ? withImage : allBazaar).filter(i => {
       if (level < 3) return i.baseTier === 'bronze';
       if (level < 5) return i.baseTier === 'bronze' || i.baseTier === 'silver';
       if (level < 8) return i.baseTier !== 'legendary';
       return true;
     });
-    const base = pool.length > 0 ? pool : all;
+    const base = pool.length > 0 ? pool : allBazaar;
     const pickOne = (): string => {
       const weighted = base
         .map(i => ({ i, w: this.tierPickWeight(level, i.baseTier) }))
@@ -535,9 +541,11 @@ export class RunService {
   }
 
   private randomItemByTier(tier: string): string {
-    const candidates = Array.from(ITEMS_MAP.values()).filter(i => i.baseTier === tier);
-    return candidates.length > 0
-      ? candidates[Math.floor(Math.random() * candidates.length)].itemId
+    const candidates = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => i.baseTier === tier && i.image);
+    const fallback = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => i.baseTier === tier);
+    const pool = candidates.length > 0 ? candidates : fallback;
+    return pool.length > 0
+      ? pool[Math.floor(Math.random() * pool.length)].itemId
       : 'health_potion';
   }
 
@@ -579,7 +587,7 @@ export class RunService {
     const tiers = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
     const tier = tiers[Math.min(tierIdx, tiers.length - 1)];
     const board: SlotItem[] = hero.startingItems.map((itemId, i) => {
-      const cfg = ITEMS_MAP.get(itemId)!;
+      const cfg = ALL_ITEMS_MAP.get(itemId)!;
       return { itemId, tier, size: cfg.size, slotIndex: i };
     });
     return { heroId: hero.heroId, level, board, hp, maxHp: hp };

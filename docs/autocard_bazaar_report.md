@@ -1,0 +1,400 @@
+# AutoCard 项目 - 大巴扎系统分析报告
+
+## 📋 项目概览
+
+- **项目路径**: `/Users/grissom/Game/AutoCard`
+- **项目类型**: TypeScript + Pixi.js 游戏客户端 + Node.js 服务器
+- **游戏模式**: 自动化卡牌游戏（类似 Auto Chess）
+
+---
+
+## 🎴 卡牌系统统计
+
+### 配置文件大小
+| 文件 | 行数 | 大小 |
+|------|------|------|
+| `bazaar_items.ts` | 24,629 | 498 KB |
+| 卡牌图片 | 852 张 | - |
+| 配置了图片的卡牌 | 856 张 | - |
+
+### 卡牌数量统计
+- **总卡牌数**: 991 张
+- **配置了图片的卡牌**: 856 张 (86.4%)
+- **英雄分布**:
+  - `dooley`: 135 张
+  - `jules`: 116 张
+  - `mak`: 128 张
+  - `pygmalien`: 133 张
+  - `stelle`: 110 张
+  - `vanessa`: 126 张
+
+---
+
+## 📁 文件结构
+
+### 服务器配置文件 (`/server/src/game/config/`)
+```
+config/
+├── bazaar_items.ts      (24,629 行) - 大巴扎所有卡牌配置
+├── items.ts             - 初始卡牌配置
+├── heroes.ts            - 英雄配置 (4个英雄)
+├── monsters.ts          - 怪物配置
+├── events.ts            - 事件配置
+└── index.ts             - 配置导出
+```
+
+### 客户端文件结构 (`/client/src/`)
+```
+client/src/
+├── main.ts              - 入口
+├── core/
+│   ├── GameState.ts     - 全局游戏状态管理
+│   └── SceneManager.ts  - 场景管理
+├── ui/                  - UI 组件
+│   ├── CardView.ts      - 卡牌渲染类 ⭐
+│   ├── BattleCardView.ts - 战斗卡牌视图
+│   ├── BoardRow.ts      - 棋盘行
+│   ├── SlotGrid.ts      - 格子网格
+│   ├── layout.ts        - 布局常量
+│   ├── BottomBar.ts     - 底部信息栏
+│   └── ...
+├── scenes/              - 游戏场景
+│   ├── ShopScene.ts     - 商店场景
+│   ├── BattleScene.ts   - 战斗场景
+│   ├── MainScene.ts     - 主场景
+│   └── LobbyScene.ts    - 大厅场景
+└── api/
+    └── client.ts        - API 客户端
+```
+
+### 卡牌图片目录
+```
+client/public/assets/
+└── cards/               - 852 张 .webp 卡牌图片
+    ├── 皂沫中士.webp
+    ├── 风车磨坊.webp
+    ├── 温馨海湾.webp
+    ├── 琥珀.webp
+    ├── ...
+    └── 乌鲁刀.webp
+```
+
+---
+
+## 🔧 关键数据结构
+
+### ItemConfig (卡牌配置)
+```typescript
+{
+  itemId: string;           // 唯一 ID
+  name: string;             // 显示名称
+  nameEn?: string;          // 英文名 (可选)
+  description: string;      // 描述文本
+  size: 1 | 2 | 3;         // 占用格子数 (1小 2中 3大)
+  baseTier: string;         // 稀有度 (bronze/silver/gold/diamond/legendary)
+  price: number;            // 金币价格
+  cooldown: number;         // 冷却时间
+  ports: [{                 // 端口 (能力)
+    category: string;       // 分类
+    type: string;           // 类型 (damage/poison/burn/heal/shield/haste等)
+    value: number;          // 数值
+  }];
+  targetRule: { kind: string };  // 目标规则
+  tags: string[];           // 标签分类
+  categories?: string[];    // 分类
+  sourceHero?: string;      // 来源英雄
+  image?: string;           // 图片路径 ⭐ (如存在则渲染图片)
+}
+```
+
+### 稀有度系统 (Tier)
+| Tier | 颜色 | 十六进制 | 背景色 |
+|------|------|---------|--------|
+| bronze | 青铜 | 0xcd7f32 | 0x3d2b1f |
+| silver | 银 | 0xc0c0c0 | 0x3a3a4a |
+| gold | 黄金 | 0xffd700 | 0x4a3a10 |
+| diamond | 钻石 | 0x00ffff | 0x0a3a4a |
+| legendary | 传奇 | 0xff44ff | 0x3a0a3a |
+
+---
+
+## 🎨 卡牌渲染系统
+
+### CardView 类 (主要渲染类)
+**文件**: `client/src/ui/CardView.ts`
+
+#### 主要功能：
+1. **卡牌框架绘制**
+   - 底框 (border) - 根据稀有度着色
+   - 主体 (body) - 背景色
+
+2. **卡牌名称** (顶部中央)
+   - size=1: 11px 字体
+   - size≥2: 13px 字体
+   - 白色 (#ffffff) 加粗
+
+3. **卡牌图片** (如存在)
+   - 异步加载 (Assets.load)
+   - 图片缓存机制 (imageCache Map)
+   - 自适应缩放 (保持宽高比)
+   - 区域: 中部 (6px 边距, 20px 顶部, 高度-55px)
+
+4. **能力图标** (中部或下部)
+   - 如有图片: 高度-40px
+   - 无图片: 28px
+   - 使用 emoji 符号表示能力类型
+   
+5. **冷却显示** (左下)
+   - 蓝色 (#aaddff), 11px 字体
+
+6. **等级标记** (右下)
+   - 显示等级首字母 (B/S/G/D/L)
+   - 颜色与稀有度对应
+
+#### 能力符号映射：
+```typescript
+damage:  ⚔️
+poison:  ☠️
+burn:    🔥
+heal:    ❤️
+shield:  🛡️
+haste:   ⚡
+charge:  🔋
+slow/freeze: ❄️
+default: ⭐
+```
+
+#### 图片加载流程：
+```
+1. 检查缓存 (imageCache)
+2. 如有缓存 → 直接创建 Sprite
+3. 无缓存 → Assets.load (异步)
+4. 加载完成 → 存入缓存 + 创建 Sprite
+5. 加载失败 → 控制台警告
+```
+
+#### Sprite 缩放逻辑：
+```typescript
+const textureRatio = texture.width / texture.height;
+const targetRatio = w / h;
+
+if (textureRatio > targetRatio) {
+  // 图片宽 → 按高度缩放，水平居中
+  sprite.height = h;
+  sprite.width = h * textureRatio;
+  sprite.x = x + (w - sprite.width) / 2;
+} else {
+  // 图片高 → 按宽度缩放，垂直居中
+  sprite.width = w;
+  sprite.height = w / textureRatio;
+  sprite.y = y + (h - sprite.height) / 2;
+}
+```
+
+### ShopCardView 类 (商店卡牌)
+- 继承自 Container
+- 显示更大的卡牌 (高度 +80px)
+- 显示完整描述
+- 显示价格、冷却、格子数
+- 购买按钮/已购/无金币/无位置 状态提示
+
+### BattleCardView 类 (战斗中卡牌)
+- 实时显示冷却条
+- 显示状态效果 (加速/减速/冻结/摧毁)
+- 触发闪光效果
+
+---
+
+## 📐 布局常量 (layout.ts)
+
+### 屏幕分区
+```typescript
+W = 960,  H = 600   // 窗口大小
+
+Zone 1 (顶部操作栏): Y=2,    H=100
+Zone 2 (内容区):     Y=106,  H=192
+Zone 3 (棋盘):       Y=302,  H=156
+Zone 4 (底部栏):     Y=462,  H=100
+
+SIDE_PAD = 16       // 侧边距
+INNER_X = 24        // 内容左边距
+```
+
+### 卡牌尺寸
+```typescript
+CARD_UNIT = 88      // 基础单位宽度
+CARD_GAP = 6        // 卡牌间距
+CARD_H = 110        // 卡牌高度
+
+// 卡牌宽度 = 88 * size + 6 * (size - 1)
+size 1: 88px
+size 2: 182px
+size 3: 276px
+```
+
+---
+
+## 🔌 配置示例
+
+### 示例 1: 简单卡牌 (无图片)
+```typescript
+{
+  itemId: '皂沫中士',
+  name: '皂沫中士',
+  description: '最左侧物品在战斗中 +20 +40 +60 价值。',
+  size: 1,
+  baseTier: 'bronze',
+  price: 3,
+  cooldown: 6.0,
+  ports: [{ category: 'output', type: 'damage', value: 5 }],
+  targetRule: { kind: 'self' },
+  tags: ['Bronze', 'CombatEncounter', 'Common'],
+}
+```
+
+### 示例 2: 带图片卡牌
+```typescript
+{
+  itemId: '风车磨坊',
+  name: '风车磨坊',
+  description: '风车磨坊',
+  size: 3,
+  baseTier: 'gold',
+  price: 3,
+  cooldown: 35.0,
+  ports: [{ category: 'output', type: 'damage', value: 5 }],
+  targetRule: { kind: 'self' },
+  tags: ['Gold+', 'Item', 'Large', 'Pygmalien', 'Health'],
+  categories: ['Pygmalien'],
+  sourceHero: 'pygmalien',
+  image: '/assets/cards/风车磨坊.webp',  // ⭐ 图片路径
+}
+```
+
+### 示例 3: 多能力卡牌
+```typescript
+{
+  itemId: '米饭',
+  name: '米饭',
+  description: '此物品被加速时，其生命再生量提高...',
+  size: 2,
+  baseTier: 'bronze',
+  price: 3,
+  cooldown: 6.0,
+  ports: [
+    { category: 'output', type: 'burn', value: 5 },
+    { category: 'defense', type: 'heal', value: 5 },
+  ],
+  targetRule: { kind: 'self' },
+  tags: ['Bronze+', 'Item', 'Medium', 'Jules', 'Regen'],
+  categories: ['Jules'],
+  sourceHero: 'jules',
+  image: '/assets/cards/米饭.webp',
+}
+```
+
+---
+
+## 💾 数据加载流程
+
+### 启动顺序
+1. **GameState 初始化**
+   - 加载 BAZAAR_ITEMS 配置
+   - 构建 itemsMap: Map<itemId, ItemConfig>
+
+2. **CardView 构造**
+   - 传入 SlotItem (itemId, tier, size)
+   - 从 gameState.itemsMap 查找配置
+   - 根据配置绘制卡牌
+
+3. **图片加载**
+   - 检查缓存
+   - 异步加载 (Pixi Assets.load)
+   - 创建 Sprite 并添加到容器
+
+---
+
+## 🎯 大巴扎特性
+
+### 英雄 & 卡牌关联
+每个英雄 (sourceHero) 对应一组专属卡牌:
+- `dooley`: 135 张
+- `jules`: 116 张  
+- `mak`: 128 张
+- `pygmalien`: 133 张
+- `stelle`: 110 张
+- `vanessa`: 126 张
+
+### 商品组织
+- **分类 (categories)**: 按英雄/主题分类
+- **标签 (tags)**: 多重标签 (Bronze+, Item, Large 等)
+- **等级 (tier)**: 影响颜色和稀有度
+
+### 购买系统
+- ShopScene 使用 ShopCardView 展示
+- 比较玩家金币与商品价格
+- 检查棋盘空间是否足够
+- 购买后从可购买列表移除
+
+---
+
+## 🔗 关键导入路径
+
+```typescript
+// 配置
+import { BAZAAR_ITEMS, BAZAAR_ITEMS_MAP } from '@server/game/config/bazaar_items'
+import type { ItemConfig } from '@autocard/shared'
+
+// UI 组件
+import { CardView, ShopCardView } from '@client/ui/CardView'
+import { BattleCardView } from '@client/ui/BattleCardView'
+import { cardWidth, CARD_H, TIER_COLORS } from '@client/ui/layout'
+
+// 游戏状态
+import { gameState } from '@client/core/GameState'
+```
+
+---
+
+## 📊 媒体资源统计
+
+### 图片格式
+- **格式**: WebP (高效压缩)
+- **位置**: `/client/public/assets/cards/`
+- **数量**: 852 张已有图片
+- **缺失**: 135 张卡牌无图片
+
+### 图片大小示例
+```
+28小时健身.webp: 240 KB
+云端油轮.webp:   230 KB
+以太能量导体.webp: 239 KB
+上菜托盘.webp:   188 KB
+...
+GPU.webp:        76 KB (较小)
+```
+
+---
+
+## 🚀 使用建议
+
+1. **添加新卡牌**: 在 `bazaar_items.ts` 中添加 ItemConfig
+2. **添加新图片**: 
+   - 放到 `/client/public/assets/cards/`
+   - 在配置中设置 `image: '/assets/cards/xxx.webp'`
+3. **修改样式**: 编辑 `CardView.ts` 或 `layout.ts`
+4. **优化图片**: 考虑进一步压缩 WebP 文件
+5. **性能**: 图片缓存已实现，无需担心重复加载
+
+---
+
+## 📝 总结
+
+AutoCard 的大巴扎系统是一个完整的卡牌展示和购买系统，包含:
+- **991 张卡牌** 配置 (来自 6 个英雄)
+- **Pixi.js 渲染** 基于 size/tier/image
+- **异步图片加载** 和缓存
+- **响应式布局** 自适应不同卡牌大小
+- **完整的 UI 层次** 从商店到战斗
+
+核心是 `CardView` 类，负责卡牌的可视化展现，支持动态图片、多等级颜色、能力图标等功能。

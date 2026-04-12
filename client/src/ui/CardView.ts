@@ -106,59 +106,64 @@ export class CardView extends Container {
   }
 
   private drawCardImage(imageUrl: string, cardWidth: number, cardHeight: number) {
-    // 图片区域大小
     const imgW = cardWidth - 12;
     const imgH = cardHeight - 55;
     const imgX = 6;
     const imgY = 20;
-
-    // 创建背景框
-    const imgBg = new Graphics();
-    imgBg.roundRect(imgX, imgY, imgW, imgH, 4);
-    imgBg.fill(0x111111);
-    this.addChild(imgBg);
-
-    // 异步加载图片
-    if (imageCache.has(imageUrl)) {
-      this.createSprite(imageCache.get(imageUrl)!, imgX, imgY, imgW, imgH);
-    } else {
-      Assets.load<Texture>(imageUrl)
-        .then((texture: Texture) => {
-          imageCache.set(imageUrl, texture);
-          this.createSprite(texture, imgX, imgY, imgW, imgH);
-        })
-        .catch((err: unknown) => {
-          console.warn(`Failed to load card image: ${imageUrl}`, err);
-        });
-    }
-  }
-
-  private createSprite(texture: Texture, x: number, y: number, w: number, h: number) {
-    const sprite = new Sprite(texture);
-    sprite.x = x;
-    sprite.y = y;
-
-    // 保持比例缩放
-    const textureRatio = texture.width / texture.height;
-    const targetRatio = w / h;
-
-    if (textureRatio > targetRatio) {
-      // 图片更宽，按高度缩放
-      sprite.height = h;
-      sprite.width = h * textureRatio;
-      sprite.x = x + (w - sprite.width) / 2;
-    } else {
-      // 图片更高，按宽度缩放
-      sprite.width = w;
-      sprite.height = w / textureRatio;
-      sprite.y = y + (h - sprite.height) / 2;
-    }
-
-    this.addChild(sprite);
+    drawImageInto(this, imageUrl, imgX, imgY, imgW, imgH);
   }
 
   get cardWidth() { return cardWidth(this.size); }
   get cardHeight() { return CARD_H; }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 模块级共享工具函数
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** 在容器内绘制卡牌图片（含深色背景框 + 按比例缩放的 Sprite） */
+function drawImageInto(container: Container, imageUrl: string, x: number, y: number, w: number, h: number) {
+  const imgBg = new Graphics();
+  imgBg.roundRect(x, y, w, h, 4);
+  imgBg.fill(0x111111);
+  container.addChild(imgBg);
+
+  const apply = (texture: Texture) => {
+    const sprite = new Sprite(texture);
+    const texRatio = texture.width / texture.height;
+    const tgtRatio = w / h;
+    if (texRatio > tgtRatio) {
+      sprite.height = h;
+      sprite.width = h * texRatio;
+      sprite.x = x + (w - sprite.width) / 2;
+      sprite.y = y;
+    } else {
+      sprite.width = w;
+      sprite.height = w / texRatio;
+      sprite.x = x;
+      sprite.y = y + (h - sprite.height) / 2;
+    }
+    // 用矩形遮罩裁剪，防止图片溢出卡牌边界
+    const mask = new Graphics();
+    mask.rect(x, y, w, h);
+    mask.fill(0xffffff);
+    container.addChild(mask);
+    sprite.mask = mask;
+    container.addChild(sprite);
+  };
+
+  if (imageCache.has(imageUrl)) {
+    apply(imageCache.get(imageUrl)!);
+  } else {
+    Assets.load<Texture>(imageUrl)
+      .then((texture: Texture) => {
+        imageCache.set(imageUrl, texture);
+        apply(texture);
+      })
+      .catch((err: unknown) => {
+        console.warn(`Failed to load card image: ${imageUrl}`, err);
+      });
+  }
 }
 
 function portSymbol(type: string): string {
@@ -186,85 +191,128 @@ export class ShopCardView extends Container {
     if (!cfg) return;
 
     const w = cardWidth(cfg.size as ItemSize);
-    const h = CARD_H + 80;
+    const hasImg = !!cfg.image;
 
+    // 商店卡牌高度：有图片时更高一些，便于显示图片
+    const SHOP_IMG_H = 96;  // 图片区高度
+    const SHOP_INFO_H = 48; // 端口/价格信息区高度
+    const BTN_AREA_H = 44;  // 购买按钮区高度
+    const NAME_H = 24;      // 名称区高度
+    const h = hasImg
+      ? NAME_H + SHOP_IMG_H + SHOP_INFO_H + BTN_AREA_H
+      : CARD_H + 80;
+
+    // 边框
     const border = new Graphics();
     border.roundRect(-2, -2, w + 4, h + 4, 8);
     border.fill({ color: opts.purchased ? 0x333333 : TIER_COLORS[cfg.baseTier] ?? 0x555555, alpha: 0.9 });
     this.addChild(border);
 
+    // 主体背景
     const body = new Graphics();
     body.roundRect(0, 0, w, h, 6);
     body.fill(opts.purchased ? 0x222222 : (TIER_BG[cfg.baseTier] ?? 0x222233));
     this.addChild(body);
 
+    // 名称（顶部居中）
     const name = new Text({
       text: cfg.name,
-      style: { fill: '#ffffff', fontSize: cfg.size === 1 ? 13 : 16, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: cfg.size === 1 ? 12 : 14, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     name.anchor.set(0.5, 0);
     name.x = w / 2;
-    name.y = 6;
+    name.y = 5;
     this.addChild(name);
 
-    const desc = new Text({
-      text: cfg.description,
-      style: { fill: '#99aabb', fontSize: 11, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: w - 12 },
-    });
-    desc.x = 6;
-    desc.y = 28;
-    this.addChild(desc);
+    if (hasImg) {
+      // ── 有图片时的布局 ──
+      // 图片区
+      drawImageInto(this, cfg.image!, 4, NAME_H, w - 8, SHOP_IMG_H);
 
-    const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
-    const portText = new Text({
-      text: portStr,
-      style: { fill: tierHex(cfg.baseTier), fontSize: 12, fontFamily: 'Arial' },
-    });
-    portText.x = 6;
-    portText.y = 68;
-    this.addChild(portText);
+      // 端口效果（图片下方）
+      const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join('  ');
+      const portText = new Text({
+        text: portStr,
+        style: { fill: tierHex(cfg.baseTier), fontSize: cfg.size === 1 ? 11 : 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      });
+      portText.anchor.set(0.5, 0);
+      portText.x = w / 2;
+      portText.y = NAME_H + SHOP_IMG_H + 4;
+      this.addChild(portText);
 
-    const info = new Text({
-      text: `${cfg.price}G  CD:${cfg.cooldown}  ${cfg.size}格`,
-      style: { fill: '#ffcc00', fontSize: 12, fontFamily: 'Arial' },
-    });
-    info.x = 6;
-    info.y = 88;
-    this.addChild(info);
+      // 价格 / CD / 格数
+      const info = new Text({
+        text: `${cfg.price}G  CD:${cfg.cooldown}s  ${cfg.size}格`,
+        style: { fill: '#ffcc00', fontSize: 11, fontFamily: 'Arial' },
+      });
+      info.anchor.set(0.5, 0);
+      info.x = w / 2;
+      info.y = NAME_H + SHOP_IMG_H + 22;
+      this.addChild(info);
+    } else {
+      // ── 无图片时的回退布局（文字版）──
+      const desc = new Text({
+        text: cfg.description,
+        style: { fill: '#99aabb', fontSize: 11, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: w - 12 },
+      });
+      desc.x = 6;
+      desc.y = 28;
+      this.addChild(desc);
+
+      const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
+      const portText = new Text({
+        text: portStr,
+        style: { fill: tierHex(cfg.baseTier), fontSize: 12, fontFamily: 'Arial' },
+      });
+      portText.x = 6;
+      portText.y = 68;
+      this.addChild(portText);
+
+      const info = new Text({
+        text: `${cfg.price}G  CD:${cfg.cooldown}  ${cfg.size}格`,
+        style: { fill: '#ffcc00', fontSize: 12, fontFamily: 'Arial' },
+      });
+      info.x = 6;
+      info.y = 88;
+      this.addChild(info);
+    }
+
+    // ── 购买状态区域 ──
+    const statusY = h - BTN_AREA_H + 6;
 
     if (opts.purchased) {
-      const sold = new Text({ text: '已购', style: { fill: '#4ad97a', fontSize: 14, fontFamily: 'Arial' } });
+      const sold = new Text({ text: '已购', style: { fill: '#4ad97a', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' } });
       sold.anchor.set(0.5, 0);
       sold.x = w / 2;
-      sold.y = CARD_H + 16;
+      sold.y = statusY;
       this.addChild(sold);
     } else if (!opts.canAfford) {
       const noGold = new Text({ text: '金币不足', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Arial' } });
       noGold.anchor.set(0.5, 0);
       noGold.x = w / 2;
-      noGold.y = CARD_H + 16;
+      noGold.y = statusY;
       this.addChild(noGold);
     } else if (!opts.canPlace) {
-      const noPlace = new Text({ text: '无法购买', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Arial' } });
+      const noPlace = new Text({ text: '无法放置', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Arial' } });
       noPlace.anchor.set(0.5, 0);
       noPlace.x = w / 2;
-      noPlace.y = CARD_H + 16;
+      noPlace.y = statusY;
       this.addChild(noPlace);
     } else if (opts.onBuy) {
       const btnW = Math.min(w - 16, 100);
       const btn = new Graphics();
-      btn.roundRect(0, 0, btnW, 32, 6);
+      btn.roundRect(0, 0, btnW, 30, 6);
       btn.fill(0x4a90d9);
       btn.x = (w - btnW) / 2;
-      btn.y = CARD_H + 10;
+      btn.y = statusY;
       btn.eventMode = 'static';
       btn.cursor = 'pointer';
       btn.on('pointertap', opts.onBuy);
       this.addChild(btn);
-      const btnText = new Text({ text: '购买', style: { fill: '#fff', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' } });
+      const btnText = new Text({ text: '购买', style: { fill: '#fff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' } });
       btnText.anchor.set(0.5);
       btnText.x = w / 2;
-      btnText.y = CARD_H + 26;
+      btnText.y = statusY + 15;
       this.addChild(btnText);
     }
   }

@@ -1,3 +1,17 @@
+---
+name: battle-engine
+description: 当需要修改战斗引擎逻辑、tick模拟、效果处理（damage/poison/haste等PortType）、目标解析（resolveTarget）时使用
+model: sonnet
+color: red
+---
+
+---
+name: battle-engine
+description: 当需要修改战斗引擎逻辑、tick模拟、效果处理（damage/poison/haste等PortType）、目标解析（resolveTarget）时使用
+model: sonnet
+color: red
+---
+
 # Battle Engine Agent
 
 你是 AutoCard 项目的战斗引擎专家，负责战斗逻辑、效果处理、目标解析的开发和维护。
