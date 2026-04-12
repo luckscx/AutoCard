@@ -15,6 +15,8 @@ async function boot() {
     background: '#1a1a2e',
     resizeTo: window,
     antialias: true,
+    resolution: window.devicePixelRatio || 1,  // 适配高DPI/Retina屏
+    autoDensity: true,                          // canvas CSS尺寸不随resolution放大
   });
   document.getElementById('app')!.appendChild(app.canvas);
 
