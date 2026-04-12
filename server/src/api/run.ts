@@ -33,6 +33,13 @@ router.post('/start', wrap(async (req, res) => {
   res.json({ run });
 }));
 
+router.post('/restart', wrap(async (req, res) => {
+  const userId = await getUserId(req);
+  const { heroId } = req.body;
+  const run = await runService.restartRun(userId, heroId);
+  res.json({ run });
+}));
+
 router.get('/current', wrap(async (req, res) => {
   const userId = await getUserId(req);
   const run = await runService.getCurrentRun(userId);

@@ -14,6 +14,13 @@ export interface StartRunResponse {
   run: RunState;
 }
 
+export interface RestartRunRequest {
+  heroId?: string;
+}
+export interface RestartRunResponse {
+  run: RunState;
+}
+
 export interface GetRunResponse {
   run: RunState | null;
 }

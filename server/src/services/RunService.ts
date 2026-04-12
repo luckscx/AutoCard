@@ -78,6 +78,21 @@ export class RunService {
     return toRunState(run);
   }
 
+  async restartRun(userId: string, heroId?: string): Promise<RunState> {
+    // 找到当前活跃 Run（如有），将其标记为放弃
+    const activeRun = await RunModel.findOne({ userId, status: 'active' });
+    const resolvedHeroId = heroId ?? activeRun?.heroId;
+    if (!resolvedHeroId) throw new Error('heroId is required when no active run exists');
+
+    if (activeRun) {
+      activeRun.status = 'finished_lose';
+      await activeRun.save();
+    }
+
+    // 复用 startRun 逻辑（此时已无 active run，不会触发冲突检查）
+    return this.startRun(userId, resolvedHeroId);
+  }
+
   async getCurrentRun(userId: string): Promise<RunState | null> {
     const run = await RunModel.findOne({ userId, status: 'active' });
     return run ? toRunState(run) : null;
@@ -151,14 +166,13 @@ export class RunService {
     const monster = monsters[Math.floor(Math.random() * monsters.length)];
 
     const battleResult = resolvePveBattle(
-      { hp: run.hp, maxHp: run.maxHp, level: run.level, board: run.board },
+      { hp: run.maxHp, maxHp: run.maxHp, level: run.level, board: run.board },
       monster,
     );
 
     battleResult.xpGained = monster.xpReward;
     battleResult.goldGained = monster.goldReward;
 
-    run.hp = battleResult.hpLeft;
     const actualGold = this.applyGoldGain(run, monster.goldReward);
     run.gold += actualGold;
     battleResult.goldGained = actualGold;
@@ -181,7 +195,6 @@ export class RunService {
       }
     }
 
-    if (run.hpRegen > 0) run.hp = Math.min(run.maxHp, run.hp + run.hpRegen);
     this.advanceHour(run);
     await run.save();
 
@@ -250,12 +263,11 @@ export class RunService {
     }
 
     const result = resolveBattle(
-      { hp: run.hp, maxHp: run.maxHp, level: run.level, board: run.board },
-      { hp: opponent.hp, maxHp: opponent.maxHp, level: opponent.level, board: opponent.board },
+      { hp: run.maxHp, maxHp: run.maxHp, level: run.level, board: run.board },
+      { hp: opponent.maxHp, maxHp: opponent.maxHp, level: opponent.level, board: opponent.board },
     );
 
     const won = result.attackerWon;
-    run.hp = result.attackerHpLeft;
 
     const battleResult: BattleResult = {
       won,
@@ -284,9 +296,6 @@ export class RunService {
       }
     }
 
-    if (run.hpRegen > 0) run.hp = Math.min(run.maxHp, run.hp + run.hpRegen);
-    // hpRegen 结算：战后回血
-    if (run.hpRegen > 0) run.hp = Math.min(run.maxHp, run.hp + run.hpRegen);
     this.advanceHour(run);
     await run.save();
 
@@ -595,8 +604,6 @@ export class RunService {
       if (run.income > 0) {
         run.gold += run.income;
       }
-      // 每天回复部分 HP
-      run.hp = Math.min(run.maxHp, run.hp + Math.floor(run.maxHp * 0.2));
     }
   }
 
