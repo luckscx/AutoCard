@@ -5,9 +5,10 @@ dist/
 
 .playwright/
 .playwright-cli/
-.claude/
 tool/db_source/
 tool/down_card_db/.DS_Store
 .DS_Store
 client/public/assets/cards
 tool/down_card_db.zip
+.obsidian
+.claude/skills/playwright-cli
