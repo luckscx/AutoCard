@@ -1,5 +1,5 @@
 import type { SlotItem, BattleResult, BattleEvent, BattleSnapshot, MonsterConfig } from '@autocard/shared';
-import { ITEMS_MAP } from './config/index.js';
+import { ITEMS_MAP, BAZAAR_ITEMS_MAP } from './config/index.js';
 import { runBattleEngine } from './battle/engine.js';
 
 interface Combatant {
@@ -8,6 +8,9 @@ interface Combatant {
   level: number;
   board: SlotItem[];
 }
+
+// Merge both item maps for complete item lookups
+const ALL_ITEMS_MAP = new Map([...ITEMS_MAP, ...BAZAAR_ITEMS_MAP]);
 
 export function resolveBattle(attacker: Combatant, defender: Combatant): { attackerWon: boolean; attackerHpLeft: number; defenderHpLeft: number; events: BattleEvent[]; snapshots: BattleSnapshot[] } {
   return runBattleEngine(attacker, defender);
@@ -21,7 +24,7 @@ export function resolvePveBattle(
 
   if (monster.battleBoard && monster.battleBoard.length > 0) {
     monsterBoard = monster.battleBoard.map(slot => {
-      const cfg = ITEMS_MAP.get(slot.itemId);
+      const cfg = ALL_ITEMS_MAP.get(slot.itemId);
       if (!cfg) throw new Error(`Unknown monster item: ${slot.itemId}`);
       return {
         itemId: slot.itemId,
