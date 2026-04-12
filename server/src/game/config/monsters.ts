@@ -10,9 +10,9 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 5,
     xpReward: 1,
     goldReward: 3,
-    battleBoard: [{ itemId: 'poison_dagger', slotIndex: 0 }],
+    battleBoard: [{ itemId: '毒刺', slotIndex: 0 }],
     lootTable: [
-      { itemId: 'health_potion', chance: 0.4 },
+      { itemId: '翡翠', chance: 0.4 },
     ],
   },
   {
@@ -24,11 +24,11 @@ export const MONSTERS: MonsterConfig[] = [
     xpReward: 1,
     goldReward: 4,
     battleBoard: [
-      { itemId: 'poison_dagger', slotIndex: 0 },
-      { itemId: 'venom_vial', slotIndex: 1 },
+      { itemId: '迷你弯刀', slotIndex: 0 },
+      { itemId: '毒液', slotIndex: 1 },
     ],
     lootTable: [
-      { itemId: 'swift_boots', chance: 0.2 },
+      { itemId: '毒液', chance: 0.3 },
     ],
   },
 
@@ -42,12 +42,12 @@ export const MONSTERS: MonsterConfig[] = [
     xpReward: 2,
     goldReward: 6,
     battleBoard: [
-      { itemId: 'fire_wand', slotIndex: 0 },
-      { itemId: 'energy_crystal', slotIndex: 1 },
+      { itemId: '蒸汽汤勺', slotIndex: 0 },
+      { itemId: '硫磺', slotIndex: 1 },
     ],
     lootTable: [
-      { itemId: 'energy_crystal', chance: 0.35 },
-      { itemId: 'fire_wand', chance: 0.15 },
+      { itemId: '蒸汽汤勺', chance: 0.35 },
+      { itemId: '炭火科尔', chance: 0.15 },
     ],
   },
   {
@@ -59,13 +59,13 @@ export const MONSTERS: MonsterConfig[] = [
     xpReward: 2,
     goldReward: 5,
     battleBoard: [
-      { itemId: 'shield_plate', slotIndex: 0 },
-      { itemId: 'thorns_ring', slotIndex: 1 },
-      { itemId: 'war_axe', slotIndex: 2 },
+      { itemId: '巴努叶', slotIndex: 0 },
+      { itemId: '珍珠', slotIndex: 1 },
+      { itemId: '恶蚊', slotIndex: 2 },
     ],
     lootTable: [
-      { itemId: 'shield_plate', chance: 0.3 },
-      { itemId: 'thorns_ring', chance: 0.2 },
+      { itemId: '巴努叶', chance: 0.3 },
+      { itemId: '珍珠', chance: 0.2 },
     ],
   },
 
@@ -78,11 +78,15 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 20,
     xpReward: 3,
     goldReward: 10,
-    battleBoard: [{ itemId: 'inferno_staff', slotIndex: 0, tier: 'silver' }],
+    // 幼龙：gold级熔岩武器 + silver级灼烧加成，掉落高价值奖励
+    battleBoard: [
+      { itemId: '熔岩压路机', slotIndex: 0 },
+      { itemId: '加热箱', slotIndex: 2 },
+    ],
     lootTable: [
-      { itemId: 'inferno_staff', chance: 0.15 },
-      { itemId: 'giants_club', chance: 0.1 },
-      { itemId: 'shadow_cloak', chance: 0.2 },
+      { itemId: '熔岩压路机', chance: 0.15 },
+      { itemId: '双头巨锤', chance: 0.10 },
+      { itemId: '加热箱', chance: 0.25 },
     ],
   },
   {
@@ -93,15 +97,16 @@ export const MONSTERS: MonsterConfig[] = [
     attack: 25,
     xpReward: 3,
     goldReward: 8,
+    // 巫妖：gold级冰霜法球 + silver级神经毒素 + silver级灵质治愈
     battleBoard: [
-      { itemId: 'frost_orb', slotIndex: 0 },
-      { itemId: 'arcane_tome', slotIndex: 2, tier: 'silver' },
-      { itemId: 'holy_staff', slotIndex: 5 },
+      { itemId: '冰霜9000', slotIndex: 0 },
+      { itemId: '神经毒素', slotIndex: 2 },
+      { itemId: '灵质', slotIndex: 5 },
     ],
     lootTable: [
-      { itemId: 'arcane_tome', chance: 0.2 },
-      { itemId: 'frost_orb', chance: 0.25 },
-      { itemId: 'divine_robe', chance: 0.1 },
+      { itemId: '神经毒素', chance: 0.20 },
+      { itemId: '冰霜9000', chance: 0.15 },
+      { itemId: '毒伞菇', chance: 0.25 },
     ],
   },
 ];

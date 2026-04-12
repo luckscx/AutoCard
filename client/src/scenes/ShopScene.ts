@@ -8,6 +8,7 @@ import { api } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import type { RunState, SlotItem } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
+import { sound } from '../audio/SoundManager.js';
 import {
   W, SIDE_PAD, INNER_X,
   Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_LABEL_Y, Z2_CARD_Y,
@@ -39,6 +40,9 @@ export class ShopScene extends Scene {
   private bottomBar!: BottomBar;
   private boardRow!: BoardRow;
   private sellHint!: Container;
+  private stashOpen = false;
+  private stashRow!: BoardRow;
+  private stashPanel!: Container;
 
   constructor(sm: SceneManager) {
     super();
@@ -54,6 +58,7 @@ export class ShopScene extends Scene {
   }
 
   private render() {
+    const wasStashOpen = this.stashOpen;
     this.removeChildren();
     const run = gameState.run!;
 
@@ -177,13 +182,35 @@ export class ShopScene extends Scene {
     this.boardRow.containerType = 'board';
     this.boardRow.update(run.board);
     this.boardRow.onSwap = (item, slot) => this.handleSwapInBoard(item, slot);
-    this.boardRow.onDragOut = (item, _gx, gy) => {
-      if (gy < Z3_Y) this.handleSellCard(item);
+    this.boardRow.onDragOut = (item, gx, gy) => {
+      if (this.stashOpen && gy >= Z2_Y && gy < Z2_Y + Z2_H) {
+        const slot = this.stashRow.getSlotIndexAtGlobal(gx);
+        if (slot >= 0) {
+          this.handleCrossMoveToStash(item, slot);
+          return;
+        }
+      }
+      if (gy < Z3_Y) {
+        this.handleSellCard(item);
+      }
     };
-    this.boardRow.onDragging = (_item, _gx, gy) => {
-      this.sellHint.visible = gy < Z3_Y;
+    this.boardRow.onDragging = (_item, gx, gy) => {
+      if (this.stashOpen) {
+        if (gy < Z2_Y) {
+          this.sellHint.visible = true;
+          this.stashRow.clearExternalHighlight();
+        } else if (gy >= Z2_Y && gy < Z2_Y + Z2_H) {
+          this.sellHint.visible = false;
+          this.stashRow.showExternalHighlight(gx, _item.size as 1 | 2 | 3);
+        } else {
+          this.sellHint.visible = false;
+          this.stashRow.clearExternalHighlight();
+        }
+      } else {
+        this.sellHint.visible = gy < Z3_Y;
+      }
     };
-    this.boardRow.onDragStop = () => { this.sellHint.visible = false; };
+    this.boardRow.onDragStop = () => this.handleDragCleanup();
     this.boardRow.onMerge = (a, b) => this.handleMergeInBoard(a, b);
     this.addChild(this.boardRow);
 
@@ -191,6 +218,176 @@ export class ShopScene extends Scene {
     this.bottomBar = new BottomBar();
     this.bottomBar.update(run);
     this.addChild(this.bottomBar);
+
+    // ---- 储物箱面板（覆盖 Z2，初始隐藏）----
+    this.stashPanel = new Container();
+    this.stashPanel.visible = false;
+
+    // 背景（覆盖整个 Z2 区域）
+    const stashBg = new Graphics();
+    stashBg.roundRect(0, 0, W - SIDE_PAD * 2, Z2_H, 10);
+    stashBg.fill({ color: 0x0e2a1b, alpha: 0.97 });
+    stashBg.x = SIDE_PAD;
+    stashBg.y = Z2_Y;
+    this.stashPanel.addChild(stashBg);
+
+    // 标题
+    const stashTitle = new Text({
+      text: '储物箱',
+      style: { fill: '#ffcc00', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    stashTitle.x = INNER_X;
+    stashTitle.y = Z2_LABEL_Y;
+    this.stashPanel.addChild(stashTitle);
+
+    // 关闭按钮
+    const closeBtn = new Button('收起', 70, 26, 0x445566);
+    closeBtn.x = W - SIDE_PAD - 86;
+    closeBtn.y = Z2_LABEL_Y - 2;
+    closeBtn.on('pointertap', () => this.toggleStash());
+    this.stashPanel.addChild(closeBtn);
+
+    // 储物箱棋盘行
+    this.stashRow = new BoardRow(10);
+    this.stashRow.x = INNER_X;
+    this.stashRow.y = Z2_CARD_Y + 20;
+    this.stashRow.containerType = 'stash';
+    this.stashRow.update(run.stash);
+    this.stashRow.onSwap = (item, slot) => this.handleSwapInStash(item, slot);
+    this.stashRow.onMerge = (a, b) => this.handleMergeInStash(a, b);
+    this.stashRow.onDragging = (item, gx, gy) => this.handleStashDragging(item, gx, gy);
+    this.stashRow.onDragOut = (item, gx, gy) => this.handleStashDragOut(item, gx, gy);
+    this.stashRow.onDragStop = () => this.handleDragCleanup();
+    this.stashPanel.addChild(this.stashRow);
+
+    this.addChild(this.stashPanel);
+
+    // ---- 绑定底部储物箱按钮 ----
+    this.bottomBar.onStashToggle = () => this.toggleStash();
+
+    // 恢复 stash 打开状态
+    if (wasStashOpen) {
+      this.stashOpen = true;
+      this.stashPanel.visible = true;
+      this.stashRow.update(run.stash);
+    }
+  }
+
+  // ====== 储物箱操作 ======
+
+  private toggleStash() {
+    this.stashOpen = !this.stashOpen;
+    this.stashPanel.visible = this.stashOpen;
+    if (this.stashOpen) {
+      this.stashRow.update(gameState.run!.stash);
+    }
+  }
+
+  private handleDragCleanup() {
+    this.sellHint.visible = false;
+    if (this.stashRow) this.stashRow.clearExternalHighlight();
+    this.boardRow.clearExternalHighlight();
+  }
+
+  private handleStashDragging(_item: SlotItem, gx: number, gy: number) {
+    if (gy < Z2_Y) {
+      this.sellHint.visible = true;
+      this.boardRow.clearExternalHighlight();
+    } else if (gy >= Z3_Y && gy < Z3_Y + Z3_H) {
+      this.sellHint.visible = false;
+      this.boardRow.showExternalHighlight(gx, _item.size as 1 | 2 | 3);
+    } else {
+      this.sellHint.visible = false;
+      this.boardRow.clearExternalHighlight();
+    }
+  }
+
+  private handleStashDragOut(item: SlotItem, gx: number, gy: number) {
+    if (gy >= Z3_Y && gy < Z3_Y + Z3_H) {
+      const slot = this.boardRow.getSlotIndexAtGlobal(gx);
+      if (slot >= 0) {
+        this.handleCrossMoveToBoard(item, slot);
+        return;
+      }
+    }
+    if (gy < Z2_Y) {
+      this.handleSellFromStash(item);
+    }
+  }
+
+  private async handleCrossMoveToStash(item: SlotItem, toSlot: number) {
+    try {
+      const result = await api.placeItem(gameState.run!.id, 'board', item.slotIndex, 'stash', toSlot);
+      gameState.setRun(result.run);
+      this.boardRow.update(result.run.board);
+      this.stashRow.update(result.run.stash);
+      this.bottomBar.update(result.run);
+    } catch (e: any) {
+      console.error('Move to stash failed:', e.message);
+    }
+  }
+
+  private async handleCrossMoveToBoard(item: SlotItem, toSlot: number) {
+    try {
+      const result = await api.placeItem(gameState.run!.id, 'stash', item.slotIndex, 'board', toSlot);
+      gameState.setRun(result.run);
+      this.boardRow.update(result.run.board);
+      this.stashRow.update(result.run.stash);
+      this.bottomBar.update(result.run);
+    } catch (e: any) {
+      console.error('Move to board failed:', e.message);
+    }
+  }
+
+  private async handleSellFromStash(item: SlotItem) {
+    try {
+      const result = await api.sellItem(gameState.run!.id, 'stash', item.slotIndex);
+      gameState.setRun(result.run);
+      sound.play('sell');
+      this.stashRow.update(result.run.stash);
+      this.bottomBar.update(result.run);
+      this.render();
+    } catch (e: any) {
+      console.error('Sell stash item failed:', e.message);
+    }
+  }
+
+  private async handleSwapInStash(item: SlotItem, targetSlot: number) {
+    const run = gameState.run!;
+    const targetItem = run.stash.find(s => targetSlot >= s.slotIndex && targetSlot < s.slotIndex + s.size);
+
+    if (targetItem && targetItem.slotIndex !== item.slotIndex) {
+      try {
+        const result = await api.swapItems(run.id, 'stash', item.slotIndex, targetItem.slotIndex);
+        gameState.setRun(result.run);
+        this.stashRow.update(result.run.stash);
+      } catch (e: any) {
+        console.error('Stash swap failed:', e.message);
+      }
+    } else if (!targetItem) {
+      try {
+        const result = await api.placeItem(run.id, 'stash', item.slotIndex, 'stash', targetSlot);
+        gameState.setRun(result.run);
+        this.stashRow.update(result.run.stash);
+      } catch (e: any) {
+        console.error('Stash place failed:', e.message);
+      }
+    }
+  }
+
+  private async handleMergeInStash(a: SlotItem, b: SlotItem) {
+    const run = gameState.run!;
+    const [indexA, indexB] =
+      a.slotIndex <= b.slotIndex ? [a.slotIndex, b.slotIndex] : [b.slotIndex, a.slotIndex];
+    try {
+      const result = await api.mergeItems(run.id, 'stash', indexA, indexB);
+      gameState.setRun(result.run);
+      this.stashRow.update(result.run.stash);
+      this.bottomBar.update(result.run);
+    } catch (e: any) {
+      console.error('Stash merge failed:', e.message);
+      alert(e.message || '合成失败');
+    }
   }
 
   // ====== API 操作 ======
@@ -199,6 +396,7 @@ export class ShopScene extends Scene {
     try {
       const result = await api.sellItem(gameState.run!.id, 'board', item.slotIndex);
       gameState.setRun(result.run);
+      sound.play('sell');
       this.render();
     } catch (e: any) {
       console.error('Sell failed:', e.message);
@@ -246,6 +444,7 @@ export class ShopScene extends Scene {
     try {
       const result = await api.buy(gameState.run!.id, itemId, target, slotIndex);
       gameState.setRun(result.run);
+      sound.play('buy');
       this.purchasedSet.add(idx);
       this.render();
     } catch (e: any) {
@@ -257,6 +456,7 @@ export class ShopScene extends Scene {
     try {
       const result = await api.refreshShop(gameState.run!.id);
       gameState.setRun(result.run);
+      sound.play('refresh');
       this.shopItems = result.shopItems;
       this.purchasedSet.clear();
       this.render();

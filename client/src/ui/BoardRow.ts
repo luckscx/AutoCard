@@ -109,21 +109,24 @@ export class BoardRow extends Container {
       this.clearSlotTargetGlow();
       this.dragItem = item;
       this.dragging = card;
-      const local = this.toLocal(e.global);
-      this.dragOffset.x = local.x - card.x;
-      this.dragOffset.y = local.y - card.y;
 
+      // ✅ 用 global 坐标计算 offset
+      const cardGlobalPos = card.getGlobalPosition();
+      this.dragOffset.x = e.global.x - cardGlobalPos.x;
+      this.dragOffset.y = e.global.y - cardGlobalPos.y;
+
+      // ✅ ghost 放到 stage 最顶层，用 global 坐标初始化位置
       this.dragGhost = new CardView(item);
       this.dragGhost.alpha = 0.7;
-      this.dragGhost.x = card.x;
-      this.dragGhost.y = card.y;
-      this.cardsLayer.addChild(this.dragGhost);
+      this.dragGhost.x = cardGlobalPos.x;
+      this.dragGhost.y = cardGlobalPos.y;
 
       card.alpha = 0.3;
       card.cursor = 'grabbing';
 
       const stage = this.getStage();
       if (stage) {
+        stage.addChild(this.dragGhost);   // ✅ 添加到最顶层
         stage.eventMode = 'static';
         stage.on('pointermove', this.handleDragMove);
         stage.on('pointerup', this.handleDragEnd);
@@ -134,11 +137,13 @@ export class BoardRow extends Container {
 
   private handleDragMove = (e: FederatedPointerEvent) => {
     if (!this.dragGhost || !this.dragItem) return;
-    const local = this.toLocal(e.global);
-    this.dragGhost.x = local.x - this.dragOffset.x;
-    this.dragGhost.y = local.y - this.dragOffset.y;
+
+    // ✅ ghost 直接用 global 坐标，完全跟随鼠标
+    this.dragGhost.x = e.global.x - this.dragOffset.x;
+    this.dragGhost.y = e.global.y - this.dragOffset.y;
 
     if (this.isWithinOwnRow(e.global.y)) {
+      const local = this.toLocal(e.global);
       const slotIdx = this.getSlotAtLocal(local.x);
       this.showHighlight(slotIdx, this.dragItem.size as 1 | 2 | 3);
     } else {
@@ -161,7 +166,8 @@ export class BoardRow extends Container {
       this.dragging.cursor = 'grab';
     }
     if (this.dragGhost) {
-      this.cardsLayer.removeChild(this.dragGhost);
+      // ✅ 从 stage 移除（而不是从 cardsLayer）
+      this.dragGhost.parent?.removeChild(this.dragGhost);
       this.dragGhost.destroy();
       this.dragGhost = null;
     }

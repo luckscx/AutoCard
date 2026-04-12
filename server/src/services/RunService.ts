@@ -48,7 +48,7 @@ export class RunService {
     if (existing) throw new Error('Already have an active run');
 
     const startingBoard: SlotItem[] = hero.startingItems.map((itemId, i) => {
-      const cfg = ITEMS_MAP.get(itemId)!;
+      const cfg = ALL_ITEMS_MAP.get(itemId)!;
       return { itemId, tier: cfg.baseTier, size: cfg.size, slotIndex: i };
     });
 

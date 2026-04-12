@@ -7,6 +7,7 @@ import { gameState } from '../core/GameState.js';
 import type { BattleResult, BattleEvent, BattleSnapshot, SlotItem, CardRuntimeState, BattleSide } from '@autocard/shared';
 import { BATTLE_TICK_MS } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
+import { sound } from '../audio/SoundManager.js';
 import {
   W, H, SIDE_PAD, INNER_X, CARD_UNIT, CARD_GAP,
   Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_LABEL_Y, Z2_CARD_Y,
@@ -263,12 +264,14 @@ export class BattleScene extends Scene {
   private processEvent(ev: BattleEvent) {
     switch (ev.type) {
       case 'card_trigger': {
+        sound.play('card_trigger');
         const cards = ev.side === 'player' ? this.playerCards : this.enemyCards;
         const card = cards.get(ev.slotIndex);
         card?.flash();
         break;
       }
       case 'damage': {
+        sound.play('damage');
         const isEnemy = ev.targetSide === 'enemy';
         const x = isEnemy ? INNER_X + 200 : INNER_X + 640;
         const y = isEnemy ? Z2_CARD_Y + 10 : Z3_CARD_Y - 10;
@@ -276,6 +279,7 @@ export class BattleScene extends Scene {
         break;
       }
       case 'heal': {
+        sound.play('heal');
         const isEnemy = ev.targetSide === 'enemy';
         const x = isEnemy ? INNER_X + 200 : INNER_X + 640;
         const y = isEnemy ? Z2_CARD_Y + 10 : Z3_CARD_Y - 10;
@@ -283,6 +287,7 @@ export class BattleScene extends Scene {
         break;
       }
       case 'shield': {
+        sound.play('shield');
         const isEnemy = ev.targetSide === 'enemy';
         const x = isEnemy ? INNER_X + 260 : INNER_X + 700;
         const y = isEnemy ? Z2_CARD_Y + 10 : Z3_CARD_Y - 10;
@@ -312,6 +317,7 @@ export class BattleScene extends Scene {
         break;
       }
       case 'destroy': {
+        sound.play('destroy');
         const cards = ev.targetSide === 'player' ? this.playerCards : this.enemyCards;
         const card = cards.get(ev.targetSlotIndex);
         if (card) {
@@ -324,6 +330,7 @@ export class BattleScene extends Scene {
         break;
       }
       case 'overtime': {
+        sound.play('overtime');
         this.spawnFloat(W / 2, Z1_Y + Z1_H + 4, `加时伤害 -${ev.playerDmg}`, '#ff8800');
         // 显示 overtime 警告层
         this.overtimeWarning.visible = true;
@@ -333,6 +340,7 @@ export class BattleScene extends Scene {
       case 'slow':
       case 'freeze':
       case 'charge': {
+        sound.play(ev.type);
         const label: Record<string, string> = { haste: '\u26A1加速', slow: '\u2744\uFE0F减速', freeze: '\u2744\uFE0F冻结', charge: '\uD83D\uDD0B充能' };
         const color: Record<string, string> = { haste: '#ffdd00', slow: '#6688ff', freeze: '#88eeff', charge: '#44ff88' };
         const isEnemy = ev.targetSide === 'enemy';

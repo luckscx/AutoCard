@@ -54,10 +54,11 @@ export type KindId = typeof KIND_IDS[number];
 
 /**
  * 每个等级对应的棋盘可用格数（最多 10 格）
- * level 1→4格, 2→5格, 3→6格, 4→7格, 5→8格, 6→9格, 7+→10格
+ * level 1→4格, 2→6格, 3→8格, 4+→10格
+ * (每级增加 2 格)
  */
 export const BOARD_SLOTS_BY_LEVEL: Record<number, number> = {
-  1: 4, 2: 5, 3: 6, 4: 7, 5: 8, 6: 9,
+  1: 4, 2: 6, 3: 8,
 };
 export function boardSlotsForLevel(level: number): number {
   return BOARD_SLOTS_BY_LEVEL[level] ?? 10;

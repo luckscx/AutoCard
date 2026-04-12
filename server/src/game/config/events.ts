@@ -49,8 +49,8 @@ export const EVENTS: EventConfig[] = [
         effects: [{ type: 'hp', value: 20 }],
       },
       {
-        label: '花费3金币获得圣光法杖',
-        effects: [{ type: 'gold', value: -3 }, { type: 'item', value: 'holy_staff' }],
+        label: '花费3金币获得降落伞',
+        effects: [{ type: 'gold', value: -3 }, { type: 'item', value: '降落伞' }],
       },
     ],
   },

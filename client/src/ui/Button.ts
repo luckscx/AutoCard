@@ -1,4 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
+import { sound } from '../audio/SoundManager.js';
 
 export class Button extends Container {
   private bg: Graphics;
@@ -20,6 +21,7 @@ export class Button extends Container {
     this.eventMode = 'static';
     this.cursor = 'pointer';
 
+    this.on('pointerdown', () => sound.play('click'));
     this.on('pointerover', () => {
       this.bg.tint = 0xcccccc;
     });

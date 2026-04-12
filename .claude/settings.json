@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // \"\"' | { read -r f; if echo \"$f\" | grep -q \"bazaar_items.ts\"; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"⚠️ bazaar_items.ts 已被修改！请立即让 game-config agent 检查所有游戏配置文件（monsters.ts、events.ts 等）中引用的道具 ID 是否仍然有效，特别注意被删除的道具。\"}}'; fi; } 2>/dev/null || true",
+            "statusMessage": "检查道具配置引用一致性..."
+          }
+        ]
+      }
+    ]
+  }
+}
