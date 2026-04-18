@@ -12,3 +12,4 @@ tool/down_card_db/.DS_Store
 tool/down_card_db.zip
 .obsidian
 .claude/skills/playwright-cli
+shared/tsconfig.tsbuildinfo
