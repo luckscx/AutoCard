@@ -7,9 +7,9 @@ import { MenuView } from '../ui/MenuView.js';
 import { api } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import {
-  W, SIDE_PAD, INNER_X,
+  W, H, SIDE_PAD, INNER_X,
   Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_LABEL_Y, Z2_CARD_Y,
-  Z3_Y, Z3_H, Z3_LABEL_Y, Z3_CARD_Y,
+  Z3_Y, Z3_H, Z3_CARD_Y,
 } from '../ui/layout.js';
 import { HOUR_TYPE } from '@autocard/shared';
 import type { SlotItem } from '@autocard/shared';
@@ -41,10 +41,10 @@ export class MainScene extends Scene {
       return;
     }
 
-    // ---- Z1 背景 ----
+    // ---- Z1 背景（竖屏紧凑顶栏）----
     const z1Bg = new Graphics();
     z1Bg.roundRect(0, 0, W - SIDE_PAD * 2, Z1_H, 8);
-    z1Bg.fill({ color: 0x0e1a2b, alpha: 0.85 });
+    z1Bg.fill({ color: 0x0e1a2b, alpha: 0.9 });
     z1Bg.x = SIDE_PAD;
     z1Bg.y = Z1_Y;
     this.addChild(z1Bg);
@@ -52,7 +52,7 @@ export class MainScene extends Scene {
     this.z1Content = new Container();
     this.addChild(this.z1Content);
 
-    // ---- 卖出遮罩 (覆盖 Z1，stash 关闭时覆盖 Z1+Z2) ----
+    // ---- 卖出遮罩 ----
     this.sellHint = new Container();
     this.sellHint.visible = false;
     this.addChild(this.sellHint);
@@ -68,7 +68,7 @@ export class MainScene extends Scene {
     this.z2Content = new Container();
     this.addChild(this.z2Content);
 
-    // ---- Z3 背景 ----
+    // ---- Z3 背景（2行棋盘）----
     const z3Bg = new Graphics();
     z3Bg.roundRect(0, 0, W - SIDE_PAD * 2, Z3_H, 10);
     z3Bg.fill({ color: 0x14243a, alpha: 0.9 });
@@ -78,10 +78,10 @@ export class MainScene extends Scene {
 
     const boardLabel = new Text({
       text: '我的棋盘',
-      style: { fill: '#8899aa', fontSize: 12, fontFamily: 'Arial' },
+      style: { fill: '#8899aa', fontSize: 11, fontFamily: 'Arial' },
     });
     boardLabel.x = INNER_X;
-    boardLabel.y = Z3_LABEL_Y;
+    boardLabel.y = Z3_Y + 4;
     this.addChild(boardLabel);
 
     const boardSlots = run.boardSlots ?? 4;
@@ -90,24 +90,24 @@ export class MainScene extends Scene {
     this.boardRow.y = Z3_CARD_Y;
     this.boardRow.containerType = 'board';
     this.boardRow.update(run.board);
-    this.boardRow.onSwap = (item, slot) => this.handleSwap(item, slot, 'board');
+    this.boardRow.onSwap    = (item, slot) => this.handleSwap(item, slot, 'board');
     this.boardRow.onDragOut = (item, gx, gy) => this.handleBoardDragOut(item, gx, gy);
-    this.boardRow.onDragging = (item, gx, gy) => this.handleBoardDragging(item, gx, gy);
-    this.boardRow.onDragStop = () => this.handleDragCleanup();
-    this.boardRow.onMerge = (a, b) => this.handleMerge(a, b, 'board');
+    this.boardRow.onDragging= (item, gx, gy) => this.handleBoardDragging(item, gx, gy);
+    this.boardRow.onDragStop= () => this.handleDragCleanup();
+    this.boardRow.onMerge   = (a, b) => this.handleMerge(a, b, 'board');
     this.addChild(this.boardRow);
 
-    // 储物箱行（放在 Z2 内部，初始隐藏）
+    // 储物箱行（放在 Z2 内部）
     this.stashRow = new BoardRow(10, 10);
     this.stashRow.x = INNER_X;
     this.stashRow.y = Z2_CARD_Y + 20;
     this.stashRow.containerType = 'stash';
     this.stashRow.update(run.stash);
-    this.stashRow.onSwap = (item, slot) => this.handleSwap(item, slot, 'stash');
+    this.stashRow.onSwap    = (item, slot) => this.handleSwap(item, slot, 'stash');
     this.stashRow.onDragOut = (item, gx, gy) => this.handleStashDragOut(item, gx, gy);
-    this.stashRow.onDragging = (item, gx, gy) => this.handleStashDragging(item, gx, gy);
-    this.stashRow.onDragStop = () => this.handleDragCleanup();
-    this.stashRow.onMerge = (a, b) => this.handleMerge(a, b, 'stash');
+    this.stashRow.onDragging= (item, gx, gy) => this.handleStashDragging(item, gx, gy);
+    this.stashRow.onDragStop= () => this.handleDragCleanup();
+    this.stashRow.onMerge   = (a, b) => this.handleMerge(a, b, 'stash');
     this.stashRow.visible = false;
     this.addChild(this.stashRow);
 
@@ -121,58 +121,42 @@ export class MainScene extends Scene {
     this.menuView = new MenuView();
     this.menuView.onRestart = () => this.handleRestart();
     this.addChild(this.menuView);
-
-    // 菜单触发按钮
     this.buildMenuButton();
 
-    // ---- 填充 Z1 & Z2 内容 ----
+    // ---- 初始渲染内容区 ----
     this.renderZ1();
     this.renderZ2();
   }
 
   // ====== Z1 顶栏 ======
 
-  /** 构建右上角菜单汉堡按钮，固定不随 Z1 内容刷新 */
   private buildMenuButton() {
-    const MENU_BTN_W = 64;
-    const MENU_BTN_H = 34;
+    const MENU_BTN_W = 54;
+    const MENU_BTN_H = 30;
     const btn = new Container();
     btn.eventMode = 'static';
     btn.cursor = 'pointer';
 
     const bg = new Graphics();
-    bg.roundRect(0, 0, MENU_BTN_W, MENU_BTN_H, 8);
+    bg.roundRect(0, 0, MENU_BTN_W, MENU_BTN_H, 6);
     bg.fill({ color: 0x2a4060, alpha: 0.92 });
     bg.stroke({ color: 0x4a90d9, width: 1 });
     btn.addChild(bg);
 
-    // 汉堡图标三横线
-    const lines = [8, 14, 20];
-    for (const lineY of lines) {
+    // 汉堡三横线
+    for (const lineY of [7, 13, 19]) {
       const line = new Graphics();
-      line.rect(10, lineY, 44, 2);
+      line.rect(8, lineY, 38, 2);
       line.fill(0xffffff);
       btn.addChild(line);
     }
-
-    // "菜单" 文字（可选，置于三线右侧）
-    const label = new Text({
-      text: '菜单',
-      style: { fill: '#ccddee', fontSize: 11, fontFamily: 'Arial' },
-    });
-    label.x = MENU_BTN_W / 2;
-    label.y = MENU_BTN_H - 10;
-    label.anchor.set(0.5, 1);
-    btn.addChild(label);
 
     btn.x = W - SIDE_PAD - MENU_BTN_W;
     btn.y = Z1_Y + (Z1_H - MENU_BTN_H) / 2;
 
     btn.on('pointerover', () => { bg.tint = 0xbbccdd; });
-    btn.on('pointerout', () => { bg.tint = 0xffffff; });
-    btn.on('pointertap', () => {
-      this.menuView.show();
-    });
+    btn.on('pointerout',  () => { bg.tint = 0xffffff; });
+    btn.on('pointertap',  () => { this.menuView.show(); });
 
     this.addChild(btn);
   }
@@ -181,14 +165,14 @@ export class MainScene extends Scene {
     this.z1Content.removeChildren();
     const run = gameState.run!;
     const hourType = HOUR_TYPE[run.hour as keyof typeof HOUR_TYPE];
-    const hourLabel = hourType === 'choice' ? '日常运营' : hourType === 'pve' ? 'PvE 野怪' : 'PvP 镜像战';
+    const hourLabel = hourType === 'choice' ? '运营' : hourType === 'pve' ? 'PvE' : 'PvP';
 
     const title = new Text({
       text: `Day${run.day} H${run.hour} — ${hourLabel}`,
-      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     title.x = INNER_X;
-    title.y = Z1_Y + 10;
+    title.y = Z1_Y + (Z1_H - 16) / 2;
     this.z1Content.addChild(title);
   }
 
@@ -201,7 +185,7 @@ export class MainScene extends Scene {
     if (this.stashOpen) {
       const stashTitle = new Text({
         text: '储物箱',
-        style: { fill: '#ffcc00', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#ffcc00', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
       });
       stashTitle.x = INNER_X;
       stashTitle.y = Z2_LABEL_Y;
@@ -212,7 +196,6 @@ export class MainScene extends Scene {
 
     this.stashRow.visible = false;
 
-    // P3 新增：优先处理升级三选一
     if (run.pendingLevelUp) {
       this.showLevelUpChoices(run.id, run.pendingLevelUp);
       return;
@@ -238,25 +221,25 @@ export class MainScene extends Scene {
     this.renderZ2();
   }
 
+  // 升级三选一 — 竖屏版：竖向排列
   private showLevelUpChoices(
     runId: string,
     pending: { level: number; choices: { label: string; kind: string }[] }
   ) {
-    // 标题
     const title = new Text({
       text: `升至 Lv.${pending.level}！选择奖励`,
-      style: { fill: '#ffd700', fontSize: 16, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     title.x = INNER_X;
     title.y = Z2_LABEL_Y;
     this.z2Content.addChild(title);
 
-    // 三个选项按钮，横排
     const btnColors = [0x4a90d9, 0x4ad97a, 0xd9704a];
+    const btnW = W - SIDE_PAD * 2 - INNER_X * 2;
     pending.choices.forEach((choice, i) => {
-      const btn = new Button(choice.label, 270, 56, btnColors[i] ?? 0x4a90d9);
-      btn.x = INNER_X + i * 300;
-      btn.y = Z2_CARD_Y + 40;
+      const btn = new Button(choice.label, btnW, 50, btnColors[i] ?? 0x4a90d9);
+      btn.x = INNER_X;
+      btn.y = Z2_CARD_Y + i * 58;
       btn.on('pointertap', async () => {
         try {
           const result = await api.levelUpChoice(runId, i);
@@ -285,7 +268,7 @@ export class MainScene extends Scene {
     this.sellHint.addChild(bg);
     const text = new Text({
       text: '松手售出卡牌',
-      style: { fill: '#ffffff', fontSize: coverZ2 ? 28 : 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: coverZ2 ? 22 : 13, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     text.anchor.set(0.5);
     text.x = W / 2;
@@ -368,18 +351,17 @@ export class MainScene extends Scene {
     const run = gameState.run!;
     const newBoardSlots = run.boardSlots ?? 4;
 
-    // 若解锁格数变化，重建棋盘行（activeSlots 不同则外观也需更新）
     if (this.boardRow.slotCount !== newBoardSlots) {
       this.removeChild(this.boardRow);
       this.boardRow = new BoardRow(newBoardSlots, 10);
       this.boardRow.x = INNER_X;
       this.boardRow.y = Z3_CARD_Y;
       this.boardRow.containerType = 'board';
-      this.boardRow.onSwap = (item, slot) => this.handleSwap(item, slot, 'board');
+      this.boardRow.onSwap    = (item, slot) => this.handleSwap(item, slot, 'board');
       this.boardRow.onDragOut = (item, gx, gy) => this.handleBoardDragOut(item, gx, gy);
-      this.boardRow.onDragging = (item, gx, gy) => this.handleBoardDragging(item, gx, gy);
-      this.boardRow.onDragStop = () => this.handleDragCleanup();
-      this.boardRow.onMerge = (a, b) => this.handleMerge(a, b, 'board');
+      this.boardRow.onDragging= (item, gx, gy) => this.handleBoardDragging(item, gx, gy);
+      this.boardRow.onDragStop= () => this.handleDragCleanup();
+      this.boardRow.onMerge   = (a, b) => this.handleMerge(a, b, 'board');
       this.addChild(this.boardRow);
     }
 
@@ -453,7 +435,6 @@ export class MainScene extends Scene {
     try {
       const run = gameState.run;
       if (!run) return;
-      // 使用当前英雄重新开始一局
       const result = await api.restartRun(run.heroId);
       gameState.setRun(result.run);
       await this.sm.goto('main');
@@ -463,7 +444,7 @@ export class MainScene extends Scene {
     }
   }
 
-  // ====== 选择按钮 ======
+  // ====== 选择按钮（竖屏：竖向排列）======
 
   private showChoiceButtons(runId: string) {
     const choices = [
@@ -471,11 +452,12 @@ export class MainScene extends Scene {
       { label: '随机事件', choice: 'event' as const, color: 0xd94a7a },
       { label: '免费礼物', choice: 'gift' as const, color: 0x4ad97a },
     ];
+    const btnW = W - SIDE_PAD * 2 - INNER_X * 2;
 
     choices.forEach((c, i) => {
-      const btn = new Button(c.label, 260, 56, c.color);
-      btn.x = INNER_X + i * 290;
-      btn.y = Z2_CARD_Y + 40;
+      const btn = new Button(c.label, btnW, 52, c.color);
+      btn.x = INNER_X;
+      btn.y = Z2_CARD_Y + i * 60;
       btn.on('pointertap', async () => {
         try {
           const result = await api.hourChoice(runId, c.choice);
@@ -494,10 +476,13 @@ export class MainScene extends Scene {
     });
   }
 
-  private showPendingEvent(runId: string, pending: { eventId: string; name: string; description: string; options: { label: string }[] }) {
+  private showPendingEvent(
+    runId: string,
+    pending: { eventId: string; name: string; description: string; options: { label: string }[] }
+  ) {
     const title = new Text({
       text: pending.name,
-      style: { fill: '#ffd700', fontSize: 16, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 15, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     title.x = INNER_X;
     title.y = Z2_LABEL_Y;
@@ -505,15 +490,16 @@ export class MainScene extends Scene {
 
     const desc = new Text({
       text: pending.description,
-      style: { fill: '#ccddee', fontSize: 13, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: W - SIDE_PAD * 2 - INNER_X * 2 },
+      style: { fill: '#ccddee', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: W - SIDE_PAD * 2 - INNER_X },
     });
     desc.x = INNER_X;
-    desc.y = Z2_LABEL_Y + 26;
+    desc.y = Z2_LABEL_Y + 24;
     this.z2Content.addChild(desc);
 
-    const startY = Z2_CARD_Y + 10;
+    const btnW = W - SIDE_PAD * 2 - INNER_X * 2;
+    const startY = Z2_CARD_Y + 30;
     pending.options.forEach((opt, i) => {
-      const btn = new Button(opt.label, Math.min(520, W - SIDE_PAD * 2 - INNER_X * 2), 44, 0x4a90d9);
+      const btn = new Button(opt.label, btnW, 44, 0x4a90d9);
       btn.x = INNER_X;
       btn.y = startY + i * 52;
       btn.on('pointertap', async () => {
@@ -532,15 +518,16 @@ export class MainScene extends Scene {
 
   private showPveButtons(runId: string) {
     const difficulties = [
-      { label: '简单怪物', diff: 'easy' as const, color: 0x4ad97a },
+      { label: '简单怪物', diff: 'easy'   as const, color: 0x4ad97a },
       { label: '中等怪物', diff: 'medium' as const, color: 0xd9c44a },
-      { label: '困难怪物', diff: 'hard' as const, color: 0xd94a4a },
+      { label: '困难怪物', diff: 'hard'   as const, color: 0xd94a4a },
     ];
+    const btnW = W - SIDE_PAD * 2 - INNER_X * 2;
 
     difficulties.forEach((d, i) => {
-      const btn = new Button(d.label, 260, 56, d.color);
-      btn.x = INNER_X + i * 290;
-      btn.y = Z2_CARD_Y + 40;
+      const btn = new Button(d.label, btnW, 52, d.color);
+      btn.x = INNER_X;
+      btn.y = Z2_CARD_Y + i * 60;
       btn.on('pointertap', async () => {
         try {
           const boardSnap = [...gameState.run!.board];
@@ -563,8 +550,8 @@ export class MainScene extends Scene {
   }
 
   private showPvpButton(runId: string) {
-    const btn = new Button('开始 PvP 镜像战！', 400, 60, 0xd94a7a);
-    btn.x = INNER_X + 200;
+    const btn = new Button('开始 PvP 镜像战！', W - SIDE_PAD * 2 - INNER_X * 2, 60, 0xd94a7a);
+    btn.x = INNER_X;
     btn.y = Z2_CARD_Y + 40;
     btn.on('pointertap', async () => {
       try {
@@ -593,31 +580,31 @@ export class MainScene extends Scene {
     const won = run.status === 'finished_win';
 
     const overlay = new Graphics();
-    overlay.rect(0, 0, W, 600);
+    overlay.rect(0, 0, W, H);
     overlay.fill({ color: 0x000000, alpha: 0.7 });
     this.addChild(overlay);
 
     const text = new Text({
-      text: won ? '胜利！累计 10 场 PvP 胜利！' : '游戏结束 — 声望耗尽',
-      style: { fill: won ? '#ffd700' : '#ff4444', fontSize: 30, fontFamily: 'Arial' },
+      text: won ? '🏆 胜利！\n累计 10 场 PvP 胜利！' : '游戏结束\n声望耗尽',
+      style: { fill: won ? '#ffd700' : '#ff4444', fontSize: 28, fontFamily: 'Arial', align: 'center' },
     });
     text.anchor.set(0.5);
     text.x = W / 2;
-    text.y = 200;
+    text.y = H / 2 - 80;
     this.addChild(text);
 
     const stats = new Text({
       text: `天数: ${run.day}  等级: ${run.level}  PvP胜场: ${run.pvpWins}`,
-      style: { fill: '#aaaacc', fontSize: 18, fontFamily: 'Arial' },
+      style: { fill: '#aaaacc', fontSize: 16, fontFamily: 'Arial' },
     });
     stats.anchor.set(0.5);
     stats.x = W / 2;
-    stats.y = 260;
+    stats.y = H / 2;
     this.addChild(stats);
 
-    const btn = new Button('返回大厅', 200, 50, 0x4a90d9);
-    btn.x = W / 2 - 100;
-    btn.y = 320;
+    const btn = new Button('返回大厅', W - SIDE_PAD * 4, 50, 0x4a90d9);
+    btn.x = SIDE_PAD * 2;
+    btn.y = H / 2 + 40;
     btn.on('pointertap', () => {
       gameState.setRun(null);
       this.sm.goto('lobby');

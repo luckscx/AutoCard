@@ -5,9 +5,9 @@ import { MainScene } from './scenes/MainScene.js';
 import { BattleScene } from './scenes/BattleScene.js';
 import { ShopScene } from './scenes/ShopScene.js';
 
-// 设计分辨率（16:10）
-const DESIGN_W = 960;
-const DESIGN_H = 600;
+// 竖屏设计分辨率（9:19.3，近似 390×844）
+const DESIGN_W = 390;
+const DESIGN_H = 844;
 
 async function boot() {
   const app = new Application();
@@ -15,12 +15,12 @@ async function boot() {
     background: '#1a1a2e',
     resizeTo: window,
     antialias: true,
-    resolution: window.devicePixelRatio || 1,  // 适配高DPI/Retina屏
-    autoDensity: true,                          // canvas CSS尺寸不随resolution放大
+    resolution: window.devicePixelRatio || 1,
+    autoDensity: true,
   });
   document.getElementById('app')!.appendChild(app.canvas);
 
-  // 根据窗口尺寸等比缩放 stage，保持 16:10 设计分辨率，四周留黑边（letterbox）
+  // 竖屏优先：保持设计分辨率比例，四周留黑边（letterbox）
   function fitStage() {
     const winW = window.innerWidth;
     const winH = window.innerHeight;

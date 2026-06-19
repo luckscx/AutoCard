@@ -60,5 +60,5 @@ export function getTargetRuleHighlightSlots(
       break;
   }
 
-  return [...out].sort((a, b) => a - b);
+  return Array.from(out).sort((a, b) => a - b);
 }

@@ -12,7 +12,7 @@ import { sound } from '../audio/SoundManager.js';
 import {
   W, SIDE_PAD, INNER_X,
   Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_LABEL_Y, Z2_CARD_Y,
-  Z3_Y, Z3_H, Z3_LABEL_Y, Z3_CARD_Y,
+  Z3_Y, Z3_H, Z3_CARD_Y,
   CARD_UNIT, CARD_GAP,
 } from '../ui/layout.js';
 import { shopRefreshCostForLevel } from '@autocard/shared';
@@ -173,7 +173,7 @@ export class ShopScene extends Scene {
       style: { fill: '#8899aa', fontSize: 12, fontFamily: 'Arial' },
     });
     boardLabel.x = INNER_X;
-    boardLabel.y = Z3_LABEL_Y;
+    boardLabel.y = Z3_Y + 4;
     this.addChild(boardLabel);
 
     this.boardRow = new BoardRow(10);
