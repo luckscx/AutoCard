@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoCard 战斗特效调试</title>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.9.2/dist/pixi.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 { font-size: 22px; margin-bottom: 6px; color: #58a6ff; }
+    .subtitle { font-size: 13px; color: #8b949e; margin-bottom: 18px; }
+    #canvas-wrap {
+      border: 2px solid #30363d;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(88,166,255,0.15);
+    }
+    .controls { margin-top: 18px; width: 780px; max-width: 98vw; }
+    .section { margin-top: 14px; }
+    .section-label {
+      font-size: 12px; color: #8b949e; margin-bottom: 6px;
+      border-bottom: 1px solid #21262d; padding-bottom: 4px;
+    }
+    .btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+    button {
+      padding: 9px 14px; border: 1px solid #30363d; border-radius: 8px;
+      background: #161b22; color: #e6edf3; font-size: 13px; cursor: pointer;
+      transition: all 0.15s; text-align: left;
+    }
+    button:hover { background: #21262d; border-color: #58a6ff; color: #58a6ff; }
+    .status-bar {
+      margin-top: 14px; padding: 10px 14px; background: #161b22;
+      border: 1px solid #30363d; border-radius: 8px; font-size: 12px;
+      color: #8b949e; min-height: 36px;
+    }
+  </style>
+</head>
+<body>
+<h1>⚔️ AutoCard 战斗特效调试台</h1>
+<p class="subtitle">实际尺寸：CARD_UNIT=34px / CARD_H=72px（对应游戏真实值）</p>
+<div id="canvas-wrap"></div>
+
+<div class="controls">
+  <div class="section">
+    <div class="section-label">⚡ 触发 / 受击特效</div>
+    <div class="btn-grid">
+      <button onclick="triggerFlash(0)">✨ 卡1 触发闪光</button>
+      <button onclick="triggerFlash(1)">✨ 卡2 触发闪光</button>
+      <button onclick="triggerFlash(2)">✨ 卡3 触发闪光</button>
+      <button onclick="triggerFlashAll()">✨ 全部闪光</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">📊 充能进度条</div>
+    <div class="btn-grid">
+      <button onclick="setCooldown(0)">进度 0%</button>
+      <button onclick="setCooldown(0.3)">进度 30%</button>
+      <button onclick="setCooldown(0.6)">进度 60%</button>
+      <button onclick="setCooldown(0.9)">进度 90%</button>
+      <button onclick="setCooldown(1.0)">进度 100% (就绪)</button>
+      <button onclick="startCooldownAnim()">🔄 自动动画循环</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">🌟 状态特效</div>
+    <div class="btn-grid">
+      <button onclick="setStatus('haste')">⚡ Haste 加速</button>
+      <button onclick="setStatus('slow')">🐢 Slow 减速</button>
+      <button onclick="setStatus('freeze')">🧊 Freeze 冻结</button>
+      <button onclick="setStatus('destroyed')">💀 已摧毁</button>
+      <button onclick="setStatus('none')">✖ 清除状态</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">🎬 组合演示</div>
+    <div class="btn-grid">
+      <button onclick="demoAll()">🎭 全特效演示序列</button>
+      <button onclick="resetAll()">🔄 重置全部</button>
+    </div>
+  </div>
+</div>
+<div class="status-bar" id="status-bar">点击按钮触发特效...</div>
+
+<script>
+// ── 常量（对应 layout.ts 真实值）─────────────────────────────────────────────
+const CARD_UNIT = 34;
+const CARD_GAP  = 2;
+const CARD_H    = 72;
+const W = 780;
+const H = 260;
+
+function cardWidth(size) {
+  return CARD_UNIT * size + CARD_GAP * (size - 1);
+}
+
+const TIER_COLORS = { bronze:0xcd7f32, silver:0xc0c0c0, gold:0xffd700, diamond:0x00ffff, legendary:0xff44ff };
+const TIER_BG     = { bronze:0x3d2b1f, silver:0x3a3a4a, gold:0x4a3a10, diamond:0x0a3a4a, legendary:0x3a0a3a };
+
+// ── 状态 ─────────────────────────────────────────────────────────────────────
+let app;
+const cards = [];  // { container, bg, cdBar, overlay, flash, glow, w, h, cooldown }
+let cdAnimTimer = null;
+let cdProgress = 0;
+
+// ── 初始化 ───────────────────────────────────────────────────────────────────
+async function init() {
+  app = new PIXI.Application();
+  await app.init({
+    width: W, height: H,
+    backgroundColor: 0x0d1117,
+    antialias: true,
+    resolution: window.devicePixelRatio || 1,
+    autoDensity: true,
+  });
+  document.getElementById('canvas-wrap').appendChild(app.canvas);
+
+  // 卡牌配置：1格、2格、3格
+  const cfgs = [
+    { size:1, tier:'gold',      label:'剑术',    ports:'⚔4',    cooldown:3, x:40  },
+    { size:2, tier:'diamond',   label:'毒雾弹',  ports:'☠2 ⚡1', cooldown:5, x:120 },
+    { size:3, tier:'legendary', label:'末日审判', ports:'🔥3 🔋5', cooldown:8, x:240 },
+  ];
+
+  for (const cfg of cfgs) {
+    const card = createCard(cfg);
+    cards.push(card);
+    app.stage.addChild(card.container);
+    updateCardState(card, { cooldownProgress: 0, hasteRemain:0, slowRemain:0, freezeRemain:0, destroyed:false });
+  }
+
+  // 启动 ticker 驱动闪光动画
+  app.ticker.add(onTick);
+  log('✅ 初始化完成，卡牌已渲染（真实游戏尺寸）');
+}
+
+function createCard(cfg) {
+  const w = cardWidth(cfg.size);
+  const h = CARD_H;
+  const container = new PIXI.Container();
+  container.x = cfg.x;
+  container.y = 80;
+
+  // 发光边框（haste）
+  const glow = new PIXI.Graphics();
+  glow.roundRect(-5, -5, w+10, h+10, 10);
+  glow.fill({ color: 0xffcc00, alpha: 0.5 });
+  glow.visible = false;
+  container.addChild(glow);
+
+  // tier 边框
+  const border = new PIXI.Graphics();
+  border.roundRect(-2, -2, w+4, h+4, 8);
+  border.fill({ color: TIER_COLORS[cfg.tier], alpha: 0.9 });
+  container.addChild(border);
+
+  // 背景
+  const bg = new PIXI.Graphics();
+  bg.roundRect(0, 0, w, h, 6);
+  bg.fill(TIER_BG[cfg.tier]);
+  container.addChild(bg);
+
+  // 卡名
+  const name = new PIXI.Text({ text: cfg.label, style: { fill:'#fff', fontSize: cfg.size===1?9:13, fontFamily:'Arial', fontWeight:'bold' } });
+  name.anchor.set(0.5, 0); name.x = w/2; name.y = 3;
+  container.addChild(name);
+
+  // ports（size>1 才显示）
+  if (cfg.size > 1) {
+    const pt = new PIXI.Text({ text: cfg.ports, style: { fill:'#aaddff', fontSize:11, fontFamily:'Arial' } });
+    pt.anchor.set(0.5,0); pt.x=w/2; pt.y=20;
+    container.addChild(pt);
+  }
+
+  // 进度条
+  const cdBar = new PIXI.Graphics();
+  container.addChild(cdBar);
+
+  // 状态覆盖层
+  const overlay = new PIXI.Graphics();
+  container.addChild(overlay);
+
+  // 触发闪光
+  const flash = new PIXI.Graphics();
+  flash.roundRect(0,0,w,h,6);
+  flash.fill({ color:0xffffff, alpha:1 });
+  flash.alpha = 0; flash.visible = false;
+  container.addChild(flash);
+
+  // 尺寸标注（card下方）
+  const sizeLabel = new PIXI.Text({ text:`size=${cfg.size} (${w}×${h})`, style:{fill:'#555', fontSize:10, fontFamily:'Arial'} });
+  sizeLabel.anchor.set(0.5,0); sizeLabel.x=w/2; sizeLabel.y=h+4;
+  container.addChild(sizeLabel);
+
+  return { container, bg, cdBar, overlay, flash, glow, w, h, cooldown: cfg.cooldown,
+           _flashAlpha:0, _flashActive:false, _readyPulse:0, _hasteTime:0 };
+}
+
+// ── Ticker ────────────────────────────────────────────────────────────────────
+function onTick() {
+  const delta = app.ticker.deltaTime;
+  const decay = delta * 0.08;
+
+  for (const c of cards) {
+    // 触发闪光渐隐
+    if (c._flashActive) {
+      c._flashAlpha = Math.max(0, c._flashAlpha - decay);
+      c.flash.alpha = c._flashAlpha;
+      if (c._flashAlpha <= 0) { c._flashActive=false; c.flash.visible=false; }
+    }
+    // 就绪脉冲渐隐
+    if (c._readyPulse > 0) {
+      c._readyPulse = Math.max(0, c._readyPulse - decay*0.6);
+      c.flash.alpha = c._readyPulse * 0.5;
+      c.flash.visible = c._readyPulse > 0;
+    }
+    // haste 发光边框脉动
+    if (c.glow.visible) {
+      const pulse = (Math.sin(Date.now()*0.006)+1)/2;
+      c.glow.alpha = 0.3 + pulse*0.5;
+    }
+  }
+}
+
+// ── 更新充能进度条 ─────────────────────────────────────────────────────────────
+function updateCardState(c, cs) {
+  const w = c.w; const h = c.h; const barH = 6;
+  const ratio = Math.min(cs.cooldownProgress / c.cooldown, 1);
+
+  c.cdBar.clear();
+  c.overlay.clear();
+  c.glow.visible = false;
+
+  if (!cs.destroyed && cs.freezeRemain <= 0) {
+    const barY = h - barH;
+    // 轨道
+    c.cdBar.roundRect(0, barY, w, barH, 2);
+    c.cdBar.fill({ color:0x0a1a30, alpha:1 });
+
+    if (ratio >= 1) {
+      c.cdBar.roundRect(0, barY, w, barH, 2);
+      c.cdBar.fill({ color:0xffffff, alpha:1 });
+      // 就绪脉冲（只触发一次）
+      if (!c._readyFlashed) {
+        c._readyFlashed = true;
+        c.flash.clear();
+        c.flash.roundRect(0,0,w,h,6);
+        c.flash.fill({ color:0xffee44, alpha:1 });
+        c._readyPulse = 1.0; c._flashActive = false;
+        c.flash.visible = true;
+        log(`💛 卡牌就绪脉冲触发 (size=${Math.round(w/CARD_UNIT)})`);
+      }
+    } else {
+      c._readyFlashed = false;
+      if (ratio > 0) {
+        let barColor = 0x44aaff;
+        if (cs.hasteRemain > 0)     barColor = 0xffcc00;
+        else if (cs.slowRemain > 0) barColor = 0x3355aa;
+        const fillW = Math.max(2, w * ratio);
+        c.cdBar.roundRect(0, barY, fillW, barH, 2);
+        c.cdBar.fill({ color:barColor, alpha:1 });
+        // 高光
+        const hlW = Math.min(4, fillW);
+        c.cdBar.rect(fillW-hlW, barY, hlW, barH);
+        c.cdBar.fill({ color:0xffffff, alpha:0.8 });
+      }
+    }
+  }
+
+  // 状态
+  if (cs.destroyed) {
+    c.overlay.alpha = 0.65;
+    c.overlay.roundRect(0,0,w,h,6);
+    c.overlay.fill(0xff2222);
+  } else if (cs.freezeRemain > 0) {
+    c.overlay.alpha = 0.55;
+    c.overlay.roundRect(0,0,w,h,6);
+    c.overlay.fill(0x88eeff);
+  } else if (cs.slowRemain > 0) {
+    c.overlay.alpha = 0.35;
+    c.overlay.roundRect(0,0,w,h,6);
+    c.overlay.fill(0x334477);
+  } else if (cs.hasteRemain > 0) {
+    c.overlay.alpha = 0.22;
+    c.overlay.roundRect(0,0,w,h,6);
+    c.overlay.fill(0xffdd00);
+    c.glow.visible = true;
+  }
+}
+
+// ── 按钮响应 ───────────────────────────────────────────────────────────────────
+function triggerFlash(i) {
+  const c = cards[i];
+  c.flash.clear();
+  c.flash.roundRect(0,0,c.w,c.h,6);
+  c.flash.fill({ color:0xffffff, alpha:1 });
+  c._flashAlpha = 0.85; c.flash.alpha = c._flashAlpha;
+  c.flash.visible = true; c._flashActive = true; c._readyPulse = 0;
+  log(`✨ 卡${i+1} 触发闪光`);
+}
+
+function triggerFlashAll() { for(let i=0;i<cards.length;i++) triggerFlash(i); }
+
+let _cdState = { cooldownProgress:0, hasteRemain:0, slowRemain:0, freezeRemain:0, destroyed:false };
+
+function setCooldown(ratio) {
+  stopCdAnim();
+  _cdState.cooldownProgress = ratio * cards[0].cooldown; // 用卡1 cooldown为基准
+  for(let i=0;i<cards.length;i++){
+    updateCardState(cards[i], { ..._cdState, cooldownProgress: ratio * cards[i].cooldown });
+  }
+  log(`📊 进度设为 ${Math.round(ratio*100)}%`);
+}
+
+let _animRatio = 0;
+function startCooldownAnim() {
+  stopCdAnim(); _animRatio = 0;
+  for(const c of cards) c._readyFlashed = false;
+  cdAnimTimer = setInterval(() => {
+    _animRatio = (_animRatio + 0.015) % 1.05;
+    const r = Math.min(_animRatio, 1);
+    for(const c of cards) {
+      updateCardState(c, { ..._cdState, cooldownProgress: r * c.cooldown });
+    }
+  }, 30);
+  log('🔄 充能动画循环中...');
+}
+function stopCdAnim() { if(cdAnimTimer){ clearInterval(cdAnimTimer); cdAnimTimer=null; } }
+
+function setStatus(s) {
+  stopCdAnim();
+  const base = { cooldownProgress: 0.5 * cards[0].cooldown, hasteRemain:0, slowRemain:0, freezeRemain:0, destroyed:false };
+  for(let i=0;i<cards.length;i++){
+    const st = { ...base, cooldownProgress: 0.5*cards[i].cooldown };
+    if(s==='haste')    st.hasteRemain=1;
+    if(s==='slow')     st.slowRemain=1;
+    if(s==='freeze')   st.freezeRemain=1;
+    if(s==='destroyed')st.destroyed=true;
+    updateCardState(cards[i], st);
+  }
+  log(`🌟 状态：${s}`);
+}
+
+function resetAll() {
+  stopCdAnim();
+  for(const c of cards){ c._readyFlashed=false; c.flash.visible=false; c._flashActive=false; c._readyPulse=0; }
+  setCooldown(0);
+  log('🔄 已重置');
+}
+
+async function demoAll() {
+  log('🎭 开始全特效演示...');
+  resetAll();
+  await sleep(300);
+  startCooldownAnim();
+  await sleep(2500); stopCdAnim();
+  setCooldown(1); await sleep(800);
+  triggerFlash(0); await sleep(300); triggerFlash(1); await sleep(300); triggerFlash(2);
+  await sleep(1000);
+  setStatus('haste'); await sleep(1500);
+  setStatus('slow');  await sleep(1500);
+  setStatus('freeze');await sleep(1500);
+  setStatus('destroyed'); await sleep(1500);
+  resetAll();
+  log('✅ 演示完成');
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function log(msg){ document.getElementById('status-bar').textContent = msg; }
+
+init().catch(console.error);
+</script>
+</body>
+</html>
