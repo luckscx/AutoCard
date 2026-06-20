@@ -466,11 +466,12 @@ export class UnifiedCardView extends Container {
     const isDestroyed = cs.destroyed || cs.freezeRemain > 0;
 
     this.cooldownBar.clear();
-    this.cooldownBeam.clear();
+    // 注意：cooldownBeam 由 Ticker 的 _drawBeam() 每帧重绘，此处不清除
 
     if (isDestroyed) {
       this.cooldownLabel.text = '';
       this._readyFlashed = false;
+      this._cooldownProgress = 0; // 停止扫光线
     } else {
       const w = this.w;
       const h = this.h;
@@ -673,6 +674,16 @@ export class UnifiedCardView extends Container {
       this._tickerCb = null;
     }
     super.destroy(options);
+  }
+
+  /** 战斗结束/重置时调用，停止光柱和扫光线 */
+  resetCooldown() {
+    if (this.mode !== 'battle') return;
+    this._cooldownProgress = 0;
+    this._readyFlashed = false;
+    this.cooldownBar.clear();
+    this.cooldownBeam.clear();
+    this.cooldownLabel.text = '';
   }
 
   /** 卡牌宽度（供外部布局使用） */

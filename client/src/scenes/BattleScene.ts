@@ -418,6 +418,9 @@ export class BattleScene extends Scene {
       this.ticker.destroy();
       this.ticker = null;
     }
+    // 停止所有卡牌的光柱 / 扫光线动画
+    for (const card of Array.from(this.playerCards.values())) card.resetCooldown();
+    for (const card of Array.from(this.enemyCards.values())) card.resetCooldown();
   }
 
   /** 重放：清场后重新走一遍 onEnter，数据完全复用 */
