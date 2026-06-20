@@ -7,6 +7,23 @@ import { W, H, SIDE_PAD } from '../ui/layout.js';
 import type { HeroConfig } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
 
+/** 只展示这 3 个英雄 */
+const VISIBLE_HEROES = ['dooley', 'jules', 'mak'];
+
+/** 各英雄头像背景色 */
+const HERO_AVATAR_COLOR: Record<string, number> = {
+  dooley: 0x1a3a5c,
+  jules:  0x3a1a2c,
+  mak:    0x1a3a1a,
+};
+
+/** 各英雄头像首字 */
+const HERO_INITIAL: Record<string, string> = {
+  dooley: '杜',
+  jules:  '朱',
+  mak:    '麦',
+};
+
 export class LobbyScene extends Scene {
   private sm: SceneManager;
 
@@ -77,7 +94,7 @@ export class LobbyScene extends Scene {
         return;
       }
 
-      loadingText.text = '选择你的英雄';
+      loadingText.text = '选择英雄';
       this.renderHeroCards(heroes);
     } catch (e: any) {
       console.error('Failed to load:', e.message);
@@ -122,50 +139,111 @@ export class LobbyScene extends Scene {
   }
 
   private renderHeroCards(heroes: HeroConfig[]) {
-    // 竖屏：英雄卡竖向排列（或小尺寸横排）
-    const cardW = W - SIDE_PAD * 2;
-    const cardH = 160;
-    const startY = 120;
-    const gap = 12;
+    // 只显示指定的 3 个英雄
+    const visible = heroes.filter(h => VISIBLE_HEROES.includes(h.heroId));
 
-    heroes.forEach((hero, i) => {
-      const bg = new Graphics();
-      bg.roundRect(0, 0, cardW, cardH, 10);
-      bg.fill({ color: 0x14243a, alpha: 0.95 });
-      bg.stroke({ color: 0x4a90d9, width: 1 });
-      bg.x = SIDE_PAD;
-      bg.y = startY + i * (cardH + gap);
-      this.addChild(bg);
+    // 头像尺寸与布局参数
+    const avatarSize = 80;     // 头像方块边长
+    const avatarGap  = 20;     // 头像横向间距
+    const gridTop    = 180;    // 网格顶部 Y（页面中央偏上）
 
-      const name = new Text({
+    // 3 个头像横排，整体居中
+    const totalW = visible.length * avatarSize + (visible.length - 1) * avatarGap;
+    const startX = (W - totalW) / 2;
+
+    // 记录当前选中的 container，用于高亮切换
+    let selectedContainer: Container | null = null;
+
+    visible.forEach((hero, i) => {
+      const avatarBgColor = HERO_AVATAR_COLOR[hero.heroId] ?? 0x2a2a3a;
+      const initial       = HERO_INITIAL[hero.heroId] ?? hero.name.charAt(0);
+      const cellX         = startX + i * (avatarSize + avatarGap);
+
+      // ── 整个英雄格子（头像 + 名字 + 描述）放入一个 Container ──
+      const cell = new Container();
+      cell.x = cellX;
+      cell.y = gridTop;
+      cell.eventMode = 'static';
+      cell.cursor = 'pointer';
+      this.addChild(cell);
+
+      // 头像背景（圆角正方形）
+      const avatarBg = new Graphics();
+      avatarBg.roundRect(0, 0, avatarSize, avatarSize, 12);
+      avatarBg.fill({ color: avatarBgColor, alpha: 1 });
+      avatarBg.stroke({ color: 0x4a90d9, width: 1.5 });
+      cell.addChild(avatarBg);
+
+      // 高亮描边层（默认透明，选中时变金色）
+      const highlight = new Graphics();
+      highlight.roundRect(-2, -2, avatarSize + 4, avatarSize + 4, 14);
+      highlight.stroke({ color: 0xffd700, width: 3 });
+      highlight.alpha = 0;
+      cell.addChild(highlight);
+
+      // 英雄名首字（大字）
+      const initialText = new Text({
+        text: initial,
+        style: { fill: '#ffffff', fontSize: 34, fontFamily: 'Arial', fontWeight: 'bold' },
+      });
+      initialText.anchor.set(0.5, 0.5);
+      initialText.x = avatarSize / 2;
+      initialText.y = avatarSize / 2;
+      cell.addChild(initialText);
+
+      // 英雄名（头像下方，14px）
+      const nameText = new Text({
         text: hero.name,
-        style: { fill: '#ffd700', fontSize: 20, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
       });
-      name.x = SIDE_PAD + 14;
-      name.y = bg.y + 12;
-      this.addChild(name);
+      nameText.anchor.set(0.5, 0);
+      nameText.x = avatarSize / 2;
+      nameText.y = avatarSize + 8;
+      cell.addChild(nameText);
 
-      const desc = new Text({
+      // 描述文字（最多 2 行，11px，灰色）
+      const descText = new Text({
         text: hero.description,
-        style: { fill: '#ccccee', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: cardW - 28 },
+        style: {
+          fill: '#999999',
+          fontSize: 11,
+          fontFamily: 'Arial',
+          wordWrap: true,
+          wordWrapWidth: avatarSize + 10,
+          align: 'center',
+        },
       });
-      desc.x = SIDE_PAD + 14;
-      desc.y = bg.y + 42;
-      this.addChild(desc);
+      descText.anchor.set(0.5, 0);
+      descText.x = avatarSize / 2;
+      descText.y = avatarSize + 28;
+      cell.addChild(descText);
 
-      const stats = new Text({
-        text: `HP: ${hero.baseHp}   HP/Lv: +${hero.hpPerLevel}   金币: ${hero.startingGold}`,
-        style: { fill: '#88aacc', fontSize: 12, fontFamily: 'Arial' },
+      // ── 交互：hover 放大 ──
+      cell.on('pointerenter', () => {
+        cell.scale.set(1.05);
       });
-      stats.x = SIDE_PAD + 14;
-      stats.y = bg.y + cardH - 46;
-      this.addChild(stats);
+      cell.on('pointerleave', () => {
+        cell.scale.set(1.0);
+      });
 
-      const btn = new Button('选择', cardW - 28, 34, 0x3a7bd5);
-      btn.x = SIDE_PAD + 14;
-      btn.y = bg.y + cardH - 44;
-      btn.on('pointertap', () => this.selectHero(hero.heroId));
-      this.addChild(btn);
+      // ── 交互：点击选择 ──
+      cell.on('pointertap', () => {
+        // 取消上一个选中的高亮
+        if (selectedContainer) {
+          const prevHighlight = selectedContainer.getChildAt(1) as Graphics;
+          prevHighlight.alpha = 0;
+        }
+        // 点中同一个：取消选中并直接进入游戏
+        if (selectedContainer === cell) {
+          selectedContainer = null;
+        } else {
+          // 高亮当前头像
+          highlight.alpha = 1;
+          selectedContainer = cell;
+        }
+        // 直接触发英雄选择
+        this.selectHero(hero.heroId);
+      });
     });
   }
 
