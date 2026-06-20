@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text, Application } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js';
 import { BoardRow } from '../ui/BoardRow.js';
@@ -183,23 +183,25 @@ export class ShopScene extends Scene {
     this.boardRow.update(run.board);
     this.boardRow.onSwap = (item, slot) => this.handleSwapInBoard(item, slot);
     this.boardRow.onDragOut = (item, gx, gy) => {
-      if (this.stashOpen && gy >= Z2_Y && gy < Z2_Y + Z2_H) {
+      const { y: dy } = this.globalToDesign(gx, gy);
+      if (this.stashOpen && dy >= Z2_Y && dy < Z2_Y + Z2_H) {
         const slot = this.stashRow.getSlotIndexAtGlobal(gx);
         if (slot >= 0) {
           this.handleCrossMoveToStash(item, slot);
           return;
         }
       }
-      if (gy < Z3_Y) {
+      if (dy < Z3_Y) {
         this.handleSellCard(item);
       }
     };
     this.boardRow.onDragging = (_item, gx, gy) => {
+      const { y: dy } = this.globalToDesign(gx, gy);
       if (this.stashOpen) {
-        if (gy < Z2_Y) {
+        if (dy < Z2_Y) {
           this.sellHint.visible = true;
           this.stashRow.clearExternalHighlight();
-        } else if (gy >= Z2_Y && gy < Z2_Y + Z2_H) {
+        } else if (dy >= Z2_Y && dy < Z2_Y + Z2_H) {
           this.sellHint.visible = false;
           this.stashRow.showExternalHighlight(gx, _item.size as 1 | 2 | 3);
         } else {
@@ -207,7 +209,7 @@ export class ShopScene extends Scene {
           this.stashRow.clearExternalHighlight();
         }
       } else {
-        this.sellHint.visible = gy < Z3_Y;
+        this.sellHint.visible = dy < Z3_Y;
       }
     };
     this.boardRow.onDragStop = () => this.handleDragCleanup();
@@ -289,11 +291,20 @@ export class ShopScene extends Scene {
     this.boardRow.clearExternalHighlight();
   }
 
+  /** 将屏幕全局坐标转为设计坐标（390×844 画布逻辑坐标），用于区域判断 */
+  private globalToDesign(gx: number, gy: number): { x: number; y: number } {
+    // 走到根节点（Application.stage），其 worldTransform 含 letterbox scale/offset
+    let node: Container | null = this as Container;
+    while (node.parent) node = node.parent as Container;
+    return node.toLocal({ x: gx, y: gy });
+  }
+
   private handleStashDragging(_item: SlotItem, gx: number, gy: number) {
-    if (gy < Z2_Y) {
+    const { x: dx, y: dy } = this.globalToDesign(gx, gy);
+    if (dy < Z2_Y) {
       this.sellHint.visible = true;
       this.boardRow.clearExternalHighlight();
-    } else if (gy >= Z3_Y && gy < Z3_Y + Z3_H) {
+    } else if (dy >= Z3_Y && dy < Z3_Y + Z3_H) {
       this.sellHint.visible = false;
       this.boardRow.showExternalHighlight(gx, _item.size as 1 | 2 | 3);
     } else {
@@ -303,14 +314,15 @@ export class ShopScene extends Scene {
   }
 
   private handleStashDragOut(item: SlotItem, gx: number, gy: number) {
-    if (gy >= Z3_Y && gy < Z3_Y + Z3_H) {
+    const { y: dy } = this.globalToDesign(gx, gy);
+    if (dy >= Z3_Y && dy < Z3_Y + Z3_H) {
       const slot = this.boardRow.getSlotIndexAtGlobal(gx);
       if (slot >= 0) {
         this.handleCrossMoveToBoard(item, slot);
         return;
       }
     }
-    if (gy < Z2_Y) {
+    if (dy < Z2_Y) {
       this.handleSellFromStash(item);
     }
   }
