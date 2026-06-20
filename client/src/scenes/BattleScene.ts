@@ -420,6 +420,12 @@ export class BattleScene extends Scene {
     }
   }
 
+  /** 重放：清场后重新走一遍 onEnter，数据完全复用 */
+  private replay() {
+    this.stopPlayback();
+    this.onEnter(this.data);
+  }
+
   private showStaticResult() {
     const run = gameState.run!;
     const bar = new BottomBar();
@@ -510,11 +516,19 @@ export class BattleScene extends Scene {
       });
     }
 
-    // 返回主场景
-    const btnY = panel.y + panelH - 54;
-    const btnBack = new Button('返回主场景', panelW - 16, 44, 0x4a90d9);
-    btnBack.x = panel.x + 8;
-    btnBack.y = btnY;
+    // 底部两个按钮：重放 | 返回
+    const btnRowY = panel.y + panelH - 54;
+    const halfW = (panelW - 24) / 2;
+
+    const btnReplay = new Button('🔁 重放', halfW, 44, 0x7a4acf);
+    btnReplay.x = panel.x + 8;
+    btnReplay.y = btnRowY;
+    btnReplay.on('pointertap', () => this.replay());
+    this.addChild(btnReplay);
+
+    const btnBack = new Button('返回主场景', halfW, 44, 0x4a90d9);
+    btnBack.x = panel.x + 8 + halfW + 8;
+    btnBack.y = btnRowY;
     btnBack.on('pointertap', () => this.sm.goto('main'));
     this.addChild(btnBack);
   }
