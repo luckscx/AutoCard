@@ -390,7 +390,7 @@ export class UnifiedCardView extends Container {
   // 扫光线绘制（Ticker 每帧调用）
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /** 在光柱已填充区域内绘制向上移动的扫光线（用 _elapsed 驱动，全卡同步） */
+  /** 扫光线固定贴在光柱顶端，随充能进度一起上升 */
   private _drawBeam() {
     const ratio = this._cooldownProgress;
     if (ratio <= 0) {
@@ -399,24 +399,18 @@ export class UnifiedCardView extends Container {
     }
     const w = this.w;
     const h = this.h;
-    const fillH = h * ratio;        // 光柱高度（从底往上）
-    const fillY = h - fillH;        // 光柱顶部 Y
+    const fillH = h * ratio;
+    const fillY = h - fillH;        // 光柱顶部 Y = 扫光线位置
 
-    // 扫光线在光柱内从底→顶的进度，周期 1200ms
-    // offset = 0 → 底部，offset = 1 → 顶部
-    const offset = (this._elapsed % 1200) / 1200;
-    const beamH = Math.max(2, fillH * 0.05); // 光线高度约 5% 光柱（细线）
-
-    // 光线中心 Y：从底部(h) 到顶部(fillY)
-    const beamCenterY = h - offset * fillH;
+    const beamH = 2;                // 固定 2px 亮线
 
     this.cooldownBeam.clear();
-    // 光线主体
-    this.cooldownBeam.rect(1, beamCenterY - beamH, w - 2, beamH);
-    this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.45 });
-    // 顶端更亮的细边
-    this.cooldownBeam.rect(1, beamCenterY - beamH - 1, w - 2, 2);
-    this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.85 });
+    // 亮线主体（白色，半透明）
+    this.cooldownBeam.rect(1, fillY, w - 2, beamH);
+    this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.9 });
+    // 下方渐出光晕（再加 3px，透明度低）
+    this.cooldownBeam.rect(1, fillY + beamH, w - 2, 3);
+    this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.25 });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
