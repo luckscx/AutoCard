@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, Ticker } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js';
-import { BattleCardView } from '../ui/BattleCardView.js';
+import { UnifiedCardView } from '../ui/UnifiedCardView.js';
 import { BottomBar } from '../ui/BottomBar.js';
 import { gameState } from '../core/GameState.js';
 import type { BattleResult, BattleEvent, BattleSnapshot, SlotItem, CardRuntimeState, BattleSide } from '@autocard/shared';
@@ -12,7 +12,6 @@ import {
   W, H, SIDE_PAD, INNER_X, CARD_UNIT, CARD_GAP,
   Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_CARD_Y,
   Z3_Y, Z3_H, Z3_CARD_Y,
-  BOARD_COLS, Z3_ROW_GAP, CARD_H,
 } from '../ui/layout.js';
 
 interface BattleData {
@@ -27,11 +26,9 @@ interface BattleData {
 const PLAYBACK_SPEED = 4;
 const OVERTIME_START_TICK = 200;
 
-/** 将 slotIndex 映射为竖屏2行5列的局部坐标 */
+/** 将 slotIndex 映射为单行线性局部坐标 */
 function slotPos(slotIndex: number): { x: number; y: number } {
-  const col = slotIndex % BOARD_COLS;
-  const row = Math.floor(slotIndex / BOARD_COLS);
-  return { x: col * (CARD_UNIT + CARD_GAP), y: row * (CARD_H + Z3_ROW_GAP) };
+  return { x: slotIndex * (CARD_UNIT + CARD_GAP), y: 0 };
 }
 
 export class BattleScene extends Scene {
@@ -46,8 +43,8 @@ export class BattleScene extends Scene {
   private battleDone = false;
   private resultShown = false;
 
-  private playerCards: Map<number, BattleCardView> = new Map();
-  private enemyCards: Map<number, BattleCardView> = new Map();
+  private playerCards: Map<number, UnifiedCardView> = new Map();
+  private enemyCards: Map<number, UnifiedCardView> = new Map();
   private playerHpBar!: HpBar;
   private enemyHpBar!: HpBar;
   private playerStatusText!: Text;
@@ -171,7 +168,7 @@ export class BattleScene extends Scene {
 
     const enemyBoard = data.opponentBoard ?? [];
     for (const item of enemyBoard) {
-      const card = new BattleCardView(item);
+      const card = new UnifiedCardView(item, 'battle');
       const pos = slotPos(item.slotIndex);
       card.x = INNER_X + pos.x;
       card.y = Z2_CARD_Y + pos.y;
@@ -193,7 +190,7 @@ export class BattleScene extends Scene {
     this.addChild(boardLabel);
 
     for (const item of data.playerBoard) {
-      const card = new BattleCardView(item);
+      const card = new UnifiedCardView(item, 'battle');
       const pos = slotPos(item.slotIndex);
       card.x = INNER_X + pos.x;
       card.y = Z3_CARD_Y + pos.y;

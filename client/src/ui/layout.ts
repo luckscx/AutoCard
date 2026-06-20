@@ -2,18 +2,18 @@
 export const W = 390;
 export const H = 844;
 
-// 卡牌基础单元（竖屏下更窄）
-export const CARD_UNIT = 64;
-export const CARD_GAP = 4;
-export const CARD_H = 86;
+// 卡牌基础单元（竖屏单行10格，390px宽适配）
+// 计算：390 - 8*2 padding = 374px，10格*34 + 9间距*2 = 358px
+export const CARD_UNIT = 34;
+export const CARD_GAP = 2;
+export const CARD_H = 72;
 
 export function cardWidth(size: 1 | 2 | 3): number {
   return CARD_UNIT * size + CARD_GAP * (size - 1);
 }
 
-// 棋盘行：5列 × 2行（竖屏下铺满宽度）
-export const BOARD_COLS = 5;
-export const BOARD_ROWS = 2;
+// 棋盘行：1行 × 10列（单行线性，保留 targetRule 左右位置关系）
+export const BOARD_COLS = 10;
 
 // Zone 1: 顶部状态栏（HP / 金币 / 声望 + 菜单按钮）
 export const Z1_Y = 0;
@@ -23,9 +23,9 @@ export const Z1_H = 50;
 export const Z2_Y = 54;
 export const Z2_H = 280;
 
-// Zone 3: 玩家棋盘（2行 × 5格）
+// Zone 3: 玩家棋盘（1行 × 10格）
 export const Z3_Y = 338;
-export const Z3_H = 218;   // 2行 * (CARD_H + ROW_GAP) + label
+export const Z3_H = 100;   // 单行: CARD_H + label
 
 // Zone 4: 底部操作栏
 export const Z4_Y = 560;
@@ -39,7 +39,6 @@ export const Z2_CARD_Y  = Z2_Y + 28;
 
 export const Z3_LABEL_Y = Z3_Y + 4;
 export const Z3_CARD_Y  = Z3_Y + 22;
-export const Z3_ROW_GAP = 8;   // 两行棋盘之间的间距
 
 // 保留兼容旧导出名
 export const UPPER_Y = Z1_Y;

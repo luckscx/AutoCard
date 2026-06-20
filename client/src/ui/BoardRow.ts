@@ -1,27 +1,16 @@
 import { Container, Graphics, FederatedPointerEvent } from 'pixi.js';
 import type { SlotItem } from '@autocard/shared';
 import { gameState } from '../core/GameState.js';
-import { CardView } from './CardView.js';
-import { BOARD_COLS, CARD_UNIT, CARD_GAP, CARD_H, cardWidth, Z3_ROW_GAP } from './layout.js';
+import { UnifiedCardView } from './UnifiedCardView.js';
+import { BOARD_COLS, CARD_UNIT, CARD_GAP, CARD_H, cardWidth } from './layout.js';
 import { getTargetRuleHighlightSlots } from './targetSlotPreview.js';
 
 // 每列宽度（格子宽 + 间隔）
 const STEP = CARD_UNIT + CARD_GAP;
-// 每行高度（卡高 + 行间隔）
-const ROW_STEP = CARD_H + Z3_ROW_GAP;
 
-/** slotIndex → { col, row } */
-function slotToGrid(slotIndex: number): { col: number; row: number } {
-  return { col: slotIndex % BOARD_COLS, row: Math.floor(slotIndex / BOARD_COLS) };
-}
-/** { col, row } → slotIndex */
-function gridToSlot(col: number, row: number): number {
-  return row * BOARD_COLS + col;
-}
-/** 格子左上角局部坐标 */
+/** 格子左上角局部坐标（线性单行） */
 function slotLocalPos(slotIndex: number): { x: number; y: number } {
-  const { col, row } = slotToGrid(slotIndex);
-  return { x: col * STEP, y: row * ROW_STEP };
+  return { x: slotIndex * STEP, y: 0 };
 }
 
 export class BoardRow extends Container {
@@ -33,10 +22,10 @@ export class BoardRow extends Container {
   private cardsLayer: Container;
   private items: SlotItem[] = [];
 
-  private dragging: CardView | null = null;
+  private dragging: UnifiedCardView | null = null;
   private dragItem: SlotItem | null = null;
   private dragOffset = { x: 0, y: 0 };
-  private dragGhost: CardView | null = null;
+  private dragGhost: UnifiedCardView | null = null;
   private highlightGraphic: Graphics | null = null;
 
   onSwap?: (item: SlotItem, targetSlotIndex: number) => void;
@@ -115,7 +104,7 @@ export class BoardRow extends Container {
     this.clearSlotTargetGlow();
     this.cardsLayer.removeChildren();
     for (const item of items) {
-      const card = new CardView(item);
+      const card = new UnifiedCardView(item, 'normal');
       const pos = slotLocalPos(item.slotIndex);
       card.x = pos.x;
       card.y = pos.y;
@@ -146,7 +135,7 @@ export class BoardRow extends Container {
     }
   }
 
-  private setupTargetPreview(card: CardView, item: SlotItem) {
+  private setupTargetPreview(card: UnifiedCardView, item: SlotItem) {
     card.on('pointerover', () => {
       if (this.dragItem) return;
       const cfg = gameState.itemsMap.get(item.itemId);
@@ -159,7 +148,7 @@ export class BoardRow extends Container {
     });
   }
 
-  private setupDrag(card: CardView, item: SlotItem) {
+  private setupDrag(card: UnifiedCardView, item: SlotItem) {
     card.on('pointerdown', (e: FederatedPointerEvent) => {
       this.clearSlotTargetGlow();
       this.dragItem = item;
@@ -169,7 +158,7 @@ export class BoardRow extends Container {
       this.dragOffset.x = e.global.x - cardGlobalPos.x;
       this.dragOffset.y = e.global.y - cardGlobalPos.y;
 
-      this.dragGhost = new CardView(item);
+      this.dragGhost = new UnifiedCardView(item, 'normal');
       this.dragGhost.alpha = 0.7;
       this.dragGhost.x = cardGlobalPos.x;
       this.dragGhost.y = cardGlobalPos.y;
@@ -249,12 +238,12 @@ export class BoardRow extends Container {
     this.onDragStop?.();
   };
 
-  // 判断全局坐标是否在本棋盘范围内（2行 × 5列）
+  // 判断全局坐标是否在本棋盘范围内（单行）
   private isWithinOwnBoard(globalX: number, globalY: number): boolean {
     const gp = this.getGlobalPosition();
     const gs = this.getAncestorScale(); // scale
     const totalW = BOARD_COLS * STEP - CARD_GAP;
-    const totalH = 2 * ROW_STEP - Z3_ROW_GAP;
+    const totalH = CARD_H;
     return (
       globalX >= gp.x - 15 && globalX <= gp.x + totalW * gs + 15 &&
       globalY >= gp.y - 15 && globalY <= gp.y + totalH * gs + 15
@@ -277,15 +266,12 @@ export class BoardRow extends Container {
     return this.getSlotAtLocal(local.x, CARD_H / 2);
   }
 
-  // 根据局部坐标确定 slotIndex（2D网格）
-  private getSlotAtLocal(localX: number, localY: number): number {
+  // 根据局部坐标确定 slotIndex（线性单行）
+  private getSlotAtLocal(localX: number, _localY: number): number {
     const col = Math.round(localX / STEP);
-    const row = Math.round(localY / ROW_STEP);
     if (col < 0 || col >= BOARD_COLS) return -1;
-    if (row < 0 || row >= 2) return -1;
-    const idx = gridToSlot(col, row);
-    if (idx >= this._totalSlots || idx >= this._activeSlots) return -1;
-    return idx;
+    if (col >= this._totalSlots || col >= this._activeSlots) return -1;
+    return col;
   }
 
   private findItemCoveringSlot(slotIndex: number): SlotItem | null {
@@ -298,9 +284,8 @@ export class BoardRow extends Container {
   private showHighlight(slotIdx: number, size: 1 | 2 | 3 = 1) {
     this.clearHighlight();
     if (slotIdx < 0) return;
-    // 竖屏下 size>1 的卡牌横跨多列（不换行）
-    const { col, row } = slotToGrid(slotIdx);
-    if (col + size > BOARD_COLS) return; // 超出本行宽度
+    // 单行：size>1 的卡牌横跨多列
+    if (slotIdx + size > BOARD_COLS) return; // 超出行宽度
     if (slotIdx + size > this._activeSlots) return;
     const w = cardWidth(size);
     const pos = slotLocalPos(slotIdx);
@@ -343,6 +328,6 @@ export class BoardRow extends Container {
   }
 
   get totalHeight() {
-    return 2 * ROW_STEP - Z3_ROW_GAP;
+    return CARD_H;
   }
 }
