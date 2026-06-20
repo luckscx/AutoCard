@@ -2,6 +2,7 @@ import { Assets, Container, Graphics, Rectangle, Sprite, Text, Texture, Ticker }
 import type { SlotItem, CardRuntimeState, ItemSize } from '@autocard/shared';
 import { gameState } from '../core/GameState.js';
 import { cardWidth, CARD_H, TIER_COLORS, TIER_BG, tierHex } from './layout.js';
+import { CardTooltip } from './CardTooltip.js';
 
 export type CardMode = 'normal' | 'battle';
 
@@ -75,6 +76,11 @@ export class UnifiedCardView extends Container {
   private h = CARD_H;
   private item: SlotItem;
 
+  // ── 长按 Tooltip ────────────────────────────────────────────────────────────
+  private static _tooltip: CardTooltip | null = null;
+  private _pressTimer: ReturnType<typeof setTimeout> | null = null;
+  private _pressing = false;
+
   // ── 构造函数 ────────────────────────────────────────────────────────────────
 
   constructor(item: SlotItem, mode: CardMode = 'normal') {
@@ -91,6 +97,11 @@ export class UnifiedCardView extends Container {
       this.drawBattle();
       this._startTicker();
     }
+
+    // ── 长按 1s 显示 Tooltip（两种模式都支持）───────────────────────────────
+    this.eventMode = 'static';
+    this.hitArea = new Rectangle(0, 0, this.w, CARD_H);
+    this._bindLongPress();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -525,10 +536,100 @@ export class UnifiedCardView extends Container {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 生命周期
+  // 长按 Tooltip
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private _bindLongPress() {
+    // 确保全局唯一 Tooltip 节点已存在（挂到 stage 的工作由各场景负责）
+    const ensureTooltip = () => {
+      if (!UnifiedCardView._tooltip) {
+        UnifiedCardView._tooltip = new CardTooltip();
+      }
+      return UnifiedCardView._tooltip;
+    };
+
+    let pressStartX = 0;
+    let pressStartY = 0;
+
+    const startPress = (e: any) => {
+      this._pressing = true;
+      pressStartX = e.global?.x ?? 0;
+      pressStartY = e.global?.y ?? 0;
+      this._pressTimer = setTimeout(() => {
+        if (!this._pressing) return;
+        const cfg = gameState.itemsMap.get(this.item.itemId);
+        if (!cfg) return;
+
+        const tooltip = ensureTooltip();
+
+        // 如果 tooltip 还没有父节点，挂到当前卡牌所在场景的根
+        if (!tooltip.parent && this.parent) {
+          // 找最顶层 Container（stage 下第一级 scene）
+          let root: Container = this;
+          while (root.parent && root.parent.parent) root = root.parent as Container;
+          root.addChild(tooltip);
+        }
+
+        // 世界坐标中心
+        const globalPos = this.getGlobalPosition();
+        const wx = globalPos.x + this.w / 2;
+        const wy = globalPos.y;
+
+        // 还原到场景本地坐标（tooltip 挂在场景下）
+        let lx = wx;
+        let ly = wy;
+        if (tooltip.parent) {
+          const parentGlobal = tooltip.parent.getGlobalPosition();
+          const scaleX = tooltip.parent.worldTransform.a || 1;
+          const scaleY = tooltip.parent.worldTransform.d || 1;
+          lx = (wx - parentGlobal.x) / scaleX;
+          ly = (wy - parentGlobal.y) / scaleY;
+        }
+
+        tooltip.show(cfg, this.item.tier, lx, ly);
+
+        // 挂到最前
+        if (tooltip.parent) {
+          tooltip.parent.setChildIndex(tooltip, tooltip.parent.children.length - 1);
+        }
+      }, 1000);
+    };
+
+    const endPress = () => {
+      this._pressing = false;
+      if (this._pressTimer !== null) {
+        clearTimeout(this._pressTimer);
+        this._pressTimer = null;
+      }
+    };
+
+    const onMove = (e: any) => {
+      if (!this._pressing) return;
+      const dx = (e.global?.x ?? 0) - pressStartX;
+      const dy = (e.global?.y ?? 0) - pressStartY;
+      // 移动超过 8px 才取消（容忍手指微抖）
+      if (dx * dx + dy * dy > 64) endPress();
+    };
+
+    // 全局点击一次就隐藏 tooltip（任意卡牌或空白区都关）
+    const globalTap = () => {
+      UnifiedCardView._tooltip?.hide();
+    };
+
+    this.on('pointerdown', startPress);
+    this.on('pointerup', endPress);
+    this.on('pointerupoutside', endPress);
+    this.on('pointermove', onMove);
+    this.on('pointertap', globalTap);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
 
   destroy(options?: Parameters<Container['destroy']>[0]) {
+    if (this._pressTimer !== null) {
+      clearTimeout(this._pressTimer);
+      this._pressTimer = null;
+    }
     if (this._tickerCb) {
       Ticker.shared.remove(this._tickerCb);
       this._tickerCb = null;
