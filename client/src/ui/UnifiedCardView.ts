@@ -54,7 +54,8 @@ export class UnifiedCardView extends Container {
   private bg!: Graphics;           // 卡牌主体背景
 
   // ── 外观层（battle 模式专用）────────────────────────────────────────────────
-  private cooldownBar!: Graphics;  // 充能进度条
+  private cooldownBar!: Graphics;  // 充能光柱（从下往上覆盖卡面）
+  private cooldownBeam!: Graphics; // 光柱顶部扫光线
   private cooldownLabel!: Text;    // 进度百分比标签
   private statusOverlay!: Graphics;// 状态覆盖层（冻结/摧毁/减速/加速）
   private triggerFlash!: Graphics; // 闪光遮罩
@@ -70,6 +71,7 @@ export class UnifiedCardView extends Container {
   private _readyPulse = 0;
   private _readyFlashed = false;
   private _elapsed = 0;            // 累计时间(ms)，供 sin 波使用
+  private _beamOffset = 0;         // 扫光线在光柱内的偏移比例 [0,1]
   private _tickerCb: ((ticker: Ticker) => void) | null = null;
 
   private w: number;
@@ -293,9 +295,13 @@ export class UnifiedCardView extends Container {
       this.addChild(portText);
     }
 
-    // 充能进度条（底部 6px）
+    // 充能光柱（从下往上覆盖卡面，初始在状态层之下）
     this.cooldownBar = new Graphics();
     this.addChild(this.cooldownBar);
+
+    // 扫光线（光柱顶部高亮条，Ticker 驱动位移）
+    this.cooldownBeam = new Graphics();
+    this.addChild(this.cooldownBeam);
 
     // 进度标签
     this.cooldownLabel = new Text({
@@ -366,8 +372,12 @@ export class UnifiedCardView extends Container {
       // 周期 ~0.4 秒：sin(2π * t / 400) → [-1,1]，映射到 [0.3, 1.0]
       const pulse = (Math.sin(this._elapsed * 0.0157) + 1) / 2; // 2π/400 ≈ 0.0157
       this.cooldownBar.alpha = 0.3 + pulse * 0.7;
+      this.cooldownBeam.alpha = 0;
     } else {
       this.cooldownBar.alpha = 1;
+      // 扫光线：在光柱范围内从底部到顶部循环滚动，周期 ~1.2s
+      this._beamOffset = (this._beamOffset + ticker.deltaMS / 1200) % 1;
+      this._drawBeam();
     }
 
     // ── Haste sin 波脉动 ──
@@ -375,6 +385,35 @@ export class UnifiedCardView extends Container {
       const pulse = (Math.sin(this._elapsed * 0.006) + 1) / 2;
       this.glowBorder.alpha = 0.3 + pulse * 0.5;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 扫光线绘制（Ticker 每帧调用）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** 在光柱已填充区域内绘制向上移动的扫光线 */
+  private _drawBeam() {
+    const ratio = this._cooldownProgress;
+    if (ratio <= 0) {
+      this.cooldownBeam.clear();
+      return;
+    }
+    const w = this.w;
+    const h = this.h;
+    const fillH = h * ratio;        // 光柱总高度（从底部往上）
+    const fillY = h - fillH;        // 光柱起始 Y
+
+    // 扫光线在光柱内的当前 Y（从底部往顶部）
+    const beamY = fillY + fillH * (1 - this._beamOffset);
+    const beamH = Math.max(3, fillH * 0.12); // 光线高度约 12% 光柱
+
+    this.cooldownBeam.clear();
+    // 光线主体（纯白高亮，低透明度）
+    this.cooldownBeam.rect(1, beamY - beamH, w - 2, beamH);
+    this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.45 });
+    // 光线顶端边缘（更亮更细）
+    this.cooldownBeam.rect(1, beamY - beamH - 1, w - 2, 2);
+    this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.85 });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -413,9 +452,6 @@ export class UnifiedCardView extends Container {
   updateState(cs: CardRuntimeState) {
     if (this.mode !== 'battle') return;
 
-    const w = this.w;
-    const barH = 6;
-
     // 清除上一帧状态文字
     if (this.statusText) {
       this.removeChild(this.statusText);
@@ -423,57 +459,61 @@ export class UnifiedCardView extends Container {
       this.statusText = null;
     }
 
-    // ── 充能进度条 ──────────────────────────────────────────────────────────
+    // ── 充能光柱（从下往上覆盖卡面）──────────────────────────────────────────
     // cooldownProgress 由后端归一化为 0~1（makeSnapshot 中除以 cfg.cooldown）
     const ratio = Math.min(Math.max(cs.cooldownProgress, 0), 1);
     this._cooldownProgress = ratio;
     const isDestroyed = cs.destroyed || cs.freezeRemain > 0;
 
     this.cooldownBar.clear();
+    this.cooldownBeam.clear();
 
     if (isDestroyed) {
       this.cooldownLabel.text = '';
       this._readyFlashed = false;
     } else {
-      const barY = this.h - barH;
-
-      // 轨道背景
-      this.cooldownBar.roundRect(0, barY, w, barH, 2);
-      this.cooldownBar.fill({ color: 0x0a1a30, alpha: 1 });
+      const w = this.w;
+      const h = this.h;
+      const fillH = h * ratio;       // 填充高度（从底部往上）
+      const fillY = h - fillH;       // 填充起始 Y
 
       if (ratio >= 0.99) {
-        // 就绪：金黄满条（同 colorLerp 终点 0xffd700）
-        this.cooldownBar.roundRect(0, barY, w, barH, 2);
-        this.cooldownBar.fill({ color: 0xffd700, alpha: 1 });
+        // 就绪：金黄满柱（整卡面）
+        this.cooldownBar.roundRect(0, 0, w, h, 6);
+        this.cooldownBar.fill({ color: 0xffd700, alpha: 0.35 });
 
         if (!this._readyFlashed) {
           this._readyFlashed = true;
           this.triggerFlash.clear();
-          this.triggerFlash.roundRect(0, 0, w, this.h, 6);
+          this.triggerFlash.roundRect(0, 0, w, h, 6);
           this.triggerFlash.fill({ color: 0xffee44, alpha: 1 });
           this._readyPulse = 1.0;
           this._flashActive = false;
         }
-      } else {
+      } else if (ratio > 0) {
         this._readyFlashed = false;
         this._readyPulse = 0;
 
-        // 颜色插值：progress=0 → 0x336688（暗蓝），progress=1 → 0xffd700（金黄）
-        const barColor = colorLerp(0x336688, 0xffd700, ratio);
+        // 颜色插值：progress=0 → 暗蓝，progress=1 → 金黄
+        const barColor = colorLerp(0x1a4060, 0xffd700, ratio);
 
         // Haste / Slow 覆盖颜色
-        let finalColor = barColor;
-        if (cs.hasteRemain > 0)     finalColor = 0xffcc00;
-        else if (cs.slowRemain > 0) finalColor = 0x3355aa;
+        let fillColor = barColor;
+        if (cs.hasteRemain > 0)     fillColor = 0xffcc00;
+        else if (cs.slowRemain > 0) fillColor = 0x3355aa;
 
-        const fillW = Math.max(2, w * ratio);
-        this.cooldownBar.roundRect(0, barY, fillW, barH, 2);
-        this.cooldownBar.fill({ color: finalColor, alpha: 1 });
+        // 主光柱：从 fillY 到底部，圆角包边，低透明度（光柱感）
+        this.cooldownBar.roundRect(0, fillY, w, fillH, ratio < 0.15 ? 2 : 6);
+        this.cooldownBar.fill({ color: fillColor, alpha: 0.38 });
 
-        // 前端高光
-        const hlW = Math.min(4, fillW);
-        this.cooldownBar.rect(fillW - hlW, barY, hlW, barH);
-        this.cooldownBar.fill({ color: 0xffffff, alpha: 0.8 });
+        // 光柱侧边高光（左边1px + 右边1px，增加立体感）
+        this.cooldownBar.rect(1, fillY, 2, fillH);
+        this.cooldownBar.fill({ color: 0xffffff, alpha: 0.18 });
+        this.cooldownBar.rect(w - 3, fillY, 2, fillH);
+        this.cooldownBar.fill({ color: 0xffffff, alpha: 0.10 });
+      } else {
+        this._readyFlashed = false;
+        this._readyPulse = 0;
       }
 
       if (this.item.size > 1) {
@@ -490,29 +530,29 @@ export class UnifiedCardView extends Container {
 
       if (cs.destroyed) {
         this.statusOverlay.alpha = 0.65;
-        this.statusOverlay.roundRect(0, 0, w, this.h, 6);
+        this.statusOverlay.roundRect(0, 0, this.w, this.h, 6);
         this.statusOverlay.fill(STATUS_COLORS.destroyed);
         const xt = new Text({
           text: '✕',
-          style: { fill: '#ff4444', fontSize: w > 60 ? 26 : 16, fontFamily: 'Arial', fontWeight: 'bold' },
+          style: { fill: '#ff4444', fontSize: this.w > 60 ? 26 : 16, fontFamily: 'Arial', fontWeight: 'bold' },
         });
         xt.anchor.set(0.5, 0.5);
-        xt.x = w / 2;
+        xt.x = this.w / 2;
         xt.y = this.h / 2;
         this.addChild(xt);
         this.statusText = xt;
 
       } else if (cs.freezeRemain > 0) {
         this.statusOverlay.alpha = 0.55;
-        this.statusOverlay.roundRect(0, 0, w, this.h, 6);
+        this.statusOverlay.roundRect(0, 0, this.w, this.h, 6);
         this.statusOverlay.fill(0x88eeff);
-        if (w > 50) {
+        if (this.w > 50) {
           const ft = new Text({
             text: '冻',
             style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
           });
           ft.anchor.set(0.5, 0.5);
-          ft.x = w / 2;
+          ft.x = this.w / 2;
           ft.y = this.h / 2;
           this.addChild(ft);
           this.statusText = ft;
@@ -520,12 +560,12 @@ export class UnifiedCardView extends Container {
 
       } else if (cs.slowRemain > 0) {
         this.statusOverlay.alpha = 0.35;
-        this.statusOverlay.roundRect(0, 0, w, this.h, 6);
+        this.statusOverlay.roundRect(0, 0, this.w, this.h, 6);
         this.statusOverlay.fill(0x334477);
 
       } else if (cs.hasteRemain > 0) {
         this.statusOverlay.alpha = 0.22;
-        this.statusOverlay.roundRect(0, 0, w, this.h, 6);
+        this.statusOverlay.roundRect(0, 0, this.w, this.h, 6);
         this.statusOverlay.fill(STATUS_COLORS.haste);
         this.glowBorder.visible = true;
         this._haste = true;

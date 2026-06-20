@@ -33,4 +33,13 @@ export class Button extends Container {
   setText(text: string) {
     this.textNode.text = text;
   }
+
+  /** 重新着色背景（用于切换选中态） */
+  setColor(color: number) {
+    const w = this.bg.width;
+    const h = this.bg.height;
+    this.bg.clear();
+    this.bg.roundRect(0, 0, w, h, 10);
+    this.bg.fill(color);
+  }
 }

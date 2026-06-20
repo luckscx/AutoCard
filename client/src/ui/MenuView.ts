@@ -10,6 +10,7 @@
  *   └── 设置页
  *       ├── BGM 音量滑块 (0~100)
  *       ├── SFX 音量滑块 (0~100)
+ *       ├── 战斗速度三档切换（1x / 2x / 4x）
  *       └── "返回"      切换回主菜单页
  *
  * 使用方法：
@@ -26,6 +27,14 @@ import { Button } from './Button.js';
 import { W, H } from './layout.js';
 import { audioManager } from '../audio/AudioManager.js';
 import { sound } from '../audio/SoundManager.js';
+import { gameState } from '../core/GameState.js';
+
+// 可选播放速度档位
+const SPEED_OPTIONS: { label: string; value: number }[] = [
+  { label: '1x', value: 1 },
+  { label: '2x', value: 2 },
+  { label: '4x', value: 4 },
+];
 
 // ── 滑块组件 ─────────────────────────────────────────────────────
 
@@ -192,7 +201,7 @@ export class MenuView extends Container {
 
     // 主面板（居中）
     const PW = 360;
-    const PH = 300;
+    const PH = 380;
     this.panel = new Container();
     this.panel.x = (W - PW) / 2;
     this.panel.y = (H - PH) / 2;
@@ -308,10 +317,61 @@ export class MenuView extends Container {
     };
     page.addChild(sfxSlider);
 
+    // ── 战斗速度 ──────────────────────────────────────────────────
+    const subtitleSpeed = new Text({
+      text: '⚡ 战斗速度',
+      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    subtitleSpeed.x = 40;
+    subtitleSpeed.y = 252;
+    page.addChild(subtitleSpeed);
+
+    // 三个速度按钮（选中高亮，未选中暗色）
+    const BTN_W = 70;
+    const BTN_H = 38;
+    const BTN_GAP = 12;
+    const speedBtns: Button[] = [];
+
+    const refreshSpeedBtns = () => {
+      const cur = gameState.settings.playbackSpeed;
+      SPEED_OPTIONS.forEach((opt, i) => {
+        const isActive = opt.value === cur;
+        speedBtns[i].setColor(isActive ? 0x4a90d9 : 0x1e3a55);
+      });
+    };
+
+    SPEED_OPTIONS.forEach((opt, i) => {
+      const btn = new Button(opt.label, BTN_W, BTN_H, 0x1e3a55);
+      btn.x = 40 + i * (BTN_W + BTN_GAP);
+      btn.y = 276;
+      btn.on('pointertap', () => {
+        gameState.settings.playbackSpeed = opt.value;
+        // 持久化到 localStorage
+        try {
+          localStorage.setItem('autocard_playback_speed', String(opt.value));
+        } catch (_) { /* ignore */ }
+        sound.play('click');
+        refreshSpeedBtns();
+      });
+      page.addChild(btn);
+      speedBtns.push(btn);
+    });
+
+    // 从 localStorage 恢复速度设置
+    try {
+      const saved = localStorage.getItem('autocard_playback_speed');
+      if (saved) {
+        const v = Number(saved);
+        if ([1, 2, 4].includes(v)) gameState.settings.playbackSpeed = v;
+      }
+    } catch (_) { /* ignore */ }
+
+    refreshSpeedBtns();
+
     // "返回" 按钮
     const btnBack = new Button('返回', 120, 40, 0x2a4060);
     btnBack.x = (pw - 120) / 2;
-    btnBack.y = 244;
+    btnBack.y = 332;
     btnBack.on('pointertap', () => this.switchPage('main'));
     page.addChild(btnBack);
 
