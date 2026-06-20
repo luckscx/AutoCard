@@ -107,7 +107,7 @@ export class BattleScene extends Scene {
     this.addChild(battleTitle);
 
     const speedLabel = new Text({
-      text: '4x',
+      text: `${gameState.settings.playbackSpeed}x`,
       style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     speedLabel.anchor.set(1, 0);
