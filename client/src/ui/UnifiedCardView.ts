@@ -113,7 +113,7 @@ export class UnifiedCardView extends Container {
     const w = this.w;
     const h = this.h;
 
-    // 卡牌底框
+    // 卡牌底框（tier 色边框）
     const border = new Graphics();
     border.roundRect(-2, -2, w + 4, h + 4, 8);
     border.fill({ color: TIER_COLORS[this.item.tier] ?? 0x555555, alpha: 0.9 });
@@ -127,72 +127,68 @@ export class UnifiedCardView extends Container {
 
     if (!cfg) return;
 
-    // 卡牌图片
-    if (cfg.image) {
-      this.drawCardImage(cfg.image, w, h);
-    }
-
-    // 名称
+    // ── 上部：名称（第1行，y=3）────────────────────────────────────────────
+    const nameSize = this.item.size === 1 ? 9 : 12;
     const name = new Text({
       text: cfg.name,
-      style: { fill: '#ffffff', fontSize: this.item.size === 1 ? 11 : 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: nameSize, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     name.anchor.set(0.5, 0);
     name.x = w / 2;
-    name.y = 4;
+    name.y = 3;
     this.addChild(name);
 
-    const hasImage = !!cfg.image;
-    const portY = hasImage ? h - 40 : 28;
-
-    // 端口图标
+    // ── 上部：port icon + 数值（第2行，y=nameSize+7）──────────────────────
+    const portY = nameSize + 8;
     const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
     const portText = new Text({
       text: portStr,
-      style: { fill: tierHex(this.item.tier), fontSize: this.item.size === 1 ? 10 : 12, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: {
+        fill: tierHex(this.item.tier),
+        fontSize: this.item.size === 1 ? 9 : 11,
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+      },
     });
     portText.anchor.set(0.5, 0);
     portText.x = w / 2;
     portText.y = portY;
     this.addChild(portText);
 
-    // 冷却（左下）
+    // ── 中部：卡牌图片（在名称+port 之下，冷却之上）──────────────────────
+    const topUsed = portY + (this.item.size === 1 ? 12 : 14); // port 行底部
+    const botReserved = 20; // 冷却/tier 行高
+    const imgY = topUsed + 2;
+    const imgH = h - topUsed - botReserved - 4;
+    if (cfg.image && imgH > 8) {
+      this.drawCardImage(cfg.image, w, imgY, imgH);
+    }
+
+    // ── 底部：冷却（左）+ Tier（右）────────────────────────────────────────
     const cdText = new Text({
-      text: `${cfg.cooldown}`,
-      style: { fill: '#aaddff', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+      text: `${cfg.cooldown}s`,
+      style: { fill: '#aaddff', fontSize: 10, fontFamily: 'Arial', fontWeight: 'bold' },
     });
-    cdText.x = 6;
-    cdText.y = h - 18;
+    cdText.x = 4;
+    cdText.y = h - 17;
     this.addChild(cdText);
 
-    // Tier 标记（右下）
     const tierLabel = new Text({
       text: this.item.tier[0].toUpperCase(),
-      style: { fill: tierHex(this.item.tier), fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: tierHex(this.item.tier), fontSize: 10, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     tierLabel.anchor.set(1, 0);
-    tierLabel.x = w - 6;
-    tierLabel.y = h - 18;
+    tierLabel.x = w - 4;
+    tierLabel.y = h - 17;
     this.addChild(tierLabel);
-
-    // 描述（仅 size>=2 且无图）
-    if (this.item.size >= 2 && !hasImage) {
-      const desc = new Text({
-        text: cfg.description,
-        style: { fill: '#99aabb', fontSize: 10, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: w - 16 },
-      });
-      desc.x = 8;
-      desc.y = 50;
-      this.addChild(desc);
-    }
   }
 
-  /** 在容器内绘制卡牌图片（含深色背景框 + 按比例缩放的 Sprite） */
-  private drawCardImage(imageUrl: string, cardW: number, cardH: number) {
-    const imgW = cardW - 12;
-    const imgH = cardH - 55;
-    const imgX = 6;
-    const imgY = 20;
+  /** 在容器内绘制卡牌图片（含深色背景框 + 按比例缩放的 Sprite）
+   *  imgY/imgH 由调用方根据卡牌布局计算，便于 normal/battle 统一复用
+   */
+  private drawCardImage(imageUrl: string, cardW: number, imgY: number, imgH: number) {
+    const imgW = cardW - 8;
+    const imgX = 4;
     this._drawImageInto(imageUrl, imgX, imgY, imgW, imgH);
   }
 
@@ -268,45 +264,47 @@ export class UnifiedCardView extends Container {
     this.addChild(this.bg);
 
     if (cfg) {
+      // ── 上部：名称（第1行）──────────────────────────────────────────────
+      const nameSize = this.item.size === 1 ? 8 : 11;
       const name = new Text({
         text: cfg.name,
-        style: {
-          fill: '#ffffff',
-          fontSize: this.item.size === 1 ? 9 : 13,
-          fontFamily: 'Arial',
-          fontWeight: 'bold',
-        },
+        style: { fill: '#ffffff', fontSize: nameSize, fontFamily: 'Arial', fontWeight: 'bold' },
       });
       name.anchor.set(0.5, 0);
       name.x = w / 2;
       name.y = 3;
       this.addChild(name);
 
-      if (this.item.size > 1) {
-        const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
-        const portText = new Text({
-          text: portStr,
-          style: { fill: tierHex(this.item.tier), fontSize: 11, fontFamily: 'Arial' },
-        });
-        portText.anchor.set(0.5, 0);
-        portText.x = w / 2;
-        portText.y = 20;
-        this.addChild(portText);
-      }
+      // ── 上部：port icon + 数值（第2行，紧接名称下方）──────────────────
+      const portY = nameSize + 7;
+      const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
+      const portText = new Text({
+        text: portStr,
+        style: {
+          fill: tierHex(this.item.tier),
+          fontSize: this.item.size === 1 ? 8 : 10,
+          fontFamily: 'Arial',
+          fontWeight: 'bold',
+        },
+      });
+      portText.anchor.set(0.5, 0);
+      portText.x = w / 2;
+      portText.y = portY;
+      this.addChild(portText);
     }
 
-    // 充能进度条
+    // 充能进度条（底部 6px）
     this.cooldownBar = new Graphics();
     this.addChild(this.cooldownBar);
 
     // 进度标签
     this.cooldownLabel = new Text({
       text: '',
-      style: { fill: '#aaddff', fontSize: 9, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aaddff', fontSize: 8, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     this.cooldownLabel.anchor.set(0.5, 1);
     this.cooldownLabel.x = w / 2;
-    this.cooldownLabel.y = h - 11;
+    this.cooldownLabel.y = h - 8;
     this.cooldownLabel.visible = this.item.size > 1;
     this.addChild(this.cooldownLabel);
 

@@ -2,11 +2,11 @@
 export const W = 390;
 export const H = 844;
 
-// 卡牌基础单元（竖屏单行10格，390px宽适配）
-// 计算：390 - 8*2 padding = 374px，10格*34 + 9间距*2 = 358px
-export const CARD_UNIT = 34;
+// 卡牌基础单元（竖屏单行10格）
+// 计算：390 - 8*2 padding - 4 = 374px，10格*36 + 9间距*2 = 378px ≈ 填满
+export const CARD_UNIT = 36;
 export const CARD_GAP = 2;
-export const CARD_H = 72;
+export const CARD_H = 96;   // 从 72 放大到 96，给图片+port+冷却留足空间
 
 export function cardWidth(size: 1 | 2 | 3): number {
   return CARD_UNIT * size + CARD_GAP * (size - 1);
@@ -25,7 +25,7 @@ export const Z2_H = 280;
 
 // Zone 3: 玩家棋盘（1行 × 10格）
 export const Z3_Y = 338;
-export const Z3_H = 100;   // 单行: CARD_H + label
+export const Z3_H = 124;   // CARD_H(96) + label(22) + margin(6)
 
 // Zone 4: 底部操作栏
 export const Z4_Y = 560;
@@ -53,21 +53,21 @@ export const BOTTOM_BAR_H = Z4_H;
 
 // ── 战斗场景专用常量 ──
 // 玩家棋盘对齐部署阶段 Z3_Y=338，其余区块从这里向上/向下展开
-export const BATTLE_Z1_Y  = 170;  // 顶部信息栏（标题+速度+Tick）
+export const BATTLE_Z1_Y  = 140;  // 顶部信息栏（标题+速度+Tick）
 export const BATTLE_Z1_H  = 38;
 
-export const BATTLE_ZEH_Y = 214;  // 敌方血条行
+export const BATTLE_ZEH_Y = 184;  // 敌方血条行
 export const BATTLE_ZEH_H = 22;
 
-export const BATTLE_Z2_Y  = 242;  // 敌方棋盘
-export const BATTLE_Z2_H  = 90;
+export const BATTLE_Z2_Y  = 212;  // 敌方棋盘（CARD_H=96，高度调大）
+export const BATTLE_Z2_H  = 114;
 export const BATTLE_Z2_CARD_Y = BATTLE_Z2_Y + 14;
 
 export const BATTLE_Z3_Y  = 338;  // 玩家棋盘 — 与部署阶段 Z3_Y 对齐
-export const BATTLE_Z3_H  = 90;
+export const BATTLE_Z3_H  = 114;
 export const BATTLE_Z3_CARD_Y = BATTLE_Z3_Y + 14;
 
-export const BATTLE_ZPH_Y = 434;  // 我方血条行
+export const BATTLE_ZPH_Y = 458;  // 我方血条行（338 + 114 + 6）
 export const BATTLE_ZPH_H = 22;
 
 export const TIER_COLORS: Record<string, number> = {
