@@ -154,19 +154,23 @@ export class BoardRow extends Container {
       this.dragItem = item;
       this.dragging = card;
 
+      // ghost 挂在 stage 上，坐标需转换为 stage 本地坐标（含 letterbox scale/offset）
+      const stage = this.getStage();
       const cardGlobalPos = card.getGlobalPosition();
-      this.dragOffset.x = e.global.x - cardGlobalPos.x;
-      this.dragOffset.y = e.global.y - cardGlobalPos.y;
+      const cardStagePos = stage ? stage.toLocal(cardGlobalPos) : cardGlobalPos;
+      const pointerStagePos = stage ? stage.toLocal(e.global) : e.global;
+
+      this.dragOffset.x = pointerStagePos.x - cardStagePos.x;
+      this.dragOffset.y = pointerStagePos.y - cardStagePos.y;
 
       this.dragGhost = new UnifiedCardView(item, 'normal');
       this.dragGhost.alpha = 0.7;
-      this.dragGhost.x = cardGlobalPos.x;
-      this.dragGhost.y = cardGlobalPos.y;
+      this.dragGhost.x = cardStagePos.x;
+      this.dragGhost.y = cardStagePos.y;
 
       card.alpha = 0.3;
       card.cursor = 'grabbing';
 
-      const stage = this.getStage();
       if (stage) {
         stage.addChild(this.dragGhost);
         stage.eventMode = 'static';
@@ -179,8 +183,12 @@ export class BoardRow extends Container {
 
   private handleDragMove = (e: FederatedPointerEvent) => {
     if (!this.dragGhost || !this.dragItem) return;
-    this.dragGhost.x = e.global.x - this.dragOffset.x;
-    this.dragGhost.y = e.global.y - this.dragOffset.y;
+
+    // 转换为 stage 本地坐标后减去 offset
+    const stage = this.getStage();
+    const stagePos = stage ? stage.toLocal(e.global) : e.global;
+    this.dragGhost.x = stagePos.x - this.dragOffset.x;
+    this.dragGhost.y = stagePos.y - this.dragOffset.y;
 
     if (this.isWithinOwnBoard(e.global.x, e.global.y)) {
       const local = this.toLocal(e.global);
