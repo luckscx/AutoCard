@@ -49,12 +49,25 @@ function getCardState(side: SideState, slotIndex: number): CardRuntimeState | un
 
 function getItemConfig(board: SlotItem[], slotIndex: number): ItemConfig | undefined {
   const slot = board.find(s => s.slotIndex === slotIndex);
-  if (!slot) return undefined;
-  return ALL_ITEMS_MAP.get(slot.itemId);
+  if (!slot) {
+    console.error(`[BattleEngine] getItemConfig: slotIndex=${slotIndex} not found in board`);
+    return undefined;
+  }
+  const cfg = ALL_ITEMS_MAP.get(slot.itemId);
+  if (!cfg) {
+    console.error(`[BattleEngine] getItemConfig: itemId="${slot.itemId}" not found in ALL_ITEMS_MAP (slotIndex=${slotIndex})`);
+  }
+  return cfg;
 }
 
 function getBoardConfigs(board: SlotItem[]): ItemConfig[] {
-  return board.map(s => ALL_ITEMS_MAP.get(s.itemId)).filter((c): c is ItemConfig => c != null);
+  return board.map(s => {
+    const cfg = ALL_ITEMS_MAP.get(s.itemId);
+    if (!cfg) {
+      console.error(`[BattleEngine] getBoardConfigs: itemId="${s.itemId}" not found in ALL_ITEMS_MAP`);
+    }
+    return cfg;
+  }).filter((c): c is ItemConfig => c != null);
 }
 
 function getTierMul(board: SlotItem[], slotIndex: number): number {

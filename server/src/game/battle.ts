@@ -25,7 +25,10 @@ export function resolvePveBattle(
   if (monster.battleBoard && monster.battleBoard.length > 0) {
     monsterBoard = monster.battleBoard.map(slot => {
       const cfg = ALL_ITEMS_MAP.get(slot.itemId);
-      if (!cfg) throw new Error(`Unknown monster item: ${slot.itemId}`);
+      if (!cfg) {
+        console.error(`[resolvePveBattle] Unknown monster item: "${slot.itemId}" (monster: ${monster.name})`);
+        throw new Error(`Unknown monster item: ${slot.itemId}`);
+      }
       return {
         itemId: slot.itemId,
         tier: slot.tier ?? cfg.baseTier,
