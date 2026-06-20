@@ -51,6 +51,24 @@ export const UPPER_INNER_Y = Z2_LABEL_Y;
 export const BOTTOM_BAR_Y = Z4_Y;
 export const BOTTOM_BAR_H = Z4_H;
 
+// ── 战斗场景专用常量 ──
+export const BATTLE_Z1_Y  = 0;
+export const BATTLE_Z1_H  = 38;   // 顶部信息栏（标题+速度+Tick）
+
+export const BATTLE_ZEH_Y = 42;   // 敌方血条行 Y
+export const BATTLE_ZEH_H = 20;   // 敌方血条行高
+
+export const BATTLE_Z2_Y  = 66;   // 敌方棋盘 Y
+export const BATTLE_Z2_H  = 90;   // 敌方棋盘高
+export const BATTLE_Z2_CARD_Y = BATTLE_Z2_Y + 14; // 卡牌起始Y
+
+export const BATTLE_Z3_Y  = 160;  // 玩家棋盘 Y
+export const BATTLE_Z3_H  = 90;   // 玩家棋盘高
+export const BATTLE_Z3_CARD_Y = BATTLE_Z3_Y + 14; // 卡牌起始Y
+
+export const BATTLE_ZPH_Y = 254;  // 我方血条行 Y
+export const BATTLE_ZPH_H = 20;   // 我方血条行高
+
 export const TIER_COLORS: Record<string, number> = {
   bronze:    0xcd7f32,
   silver:    0xc0c0c0,

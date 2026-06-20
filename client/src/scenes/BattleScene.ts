@@ -4,14 +4,18 @@ import { Button } from '../ui/Button.js';
 import { UnifiedCardView } from '../ui/UnifiedCardView.js';
 import { BottomBar } from '../ui/BottomBar.js';
 import { gameState } from '../core/GameState.js';
+import type { GameSettings } from '../core/GameState.js';
 import type { BattleResult, BattleEvent, BattleSnapshot, SlotItem, CardRuntimeState, BattleSide } from '@autocard/shared';
 import { BATTLE_TICK_MS } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
 import { sound } from '../audio/SoundManager.js';
 import {
-  W, H, SIDE_PAD, INNER_X, CARD_UNIT, CARD_GAP,
-  Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_CARD_Y,
-  Z3_Y, Z3_H, Z3_CARD_Y,
+  W, H, SIDE_PAD, INNER_X, CARD_UNIT, CARD_GAP, Z4_H,
+  BATTLE_Z1_Y, BATTLE_Z1_H,
+  BATTLE_ZEH_Y, BATTLE_ZEH_H,
+  BATTLE_Z2_Y, BATTLE_Z2_H, BATTLE_Z2_CARD_Y,
+  BATTLE_Z3_Y, BATTLE_Z3_H, BATTLE_Z3_CARD_Y,
+  BATTLE_ZPH_Y, BATTLE_ZPH_H,
 } from '../ui/layout.js';
 
 interface BattleData {
@@ -23,7 +27,6 @@ interface BattleData {
   playerBoard: SlotItem[];
 }
 
-const PLAYBACK_SPEED = 4;
 const OVERTIME_START_TICK = 200;
 
 /** 将 slotIndex 映射为单行线性局部坐标 */
@@ -87,12 +90,12 @@ export class BattleScene extends Scene {
     const run = gameState.run!;
     const snap0 = this.snapshots[0];
 
-    // ── Z1: 战斗信息 + HP条（竖屏紧凑顶栏）──
+    // ── Z1: 顶部信息栏（标题+速度+Tick）──
     const z1Bg = new Graphics();
-    z1Bg.roundRect(0, 0, W - SIDE_PAD * 2, Z1_H, 8);
-    z1Bg.fill({ color: 0x2a0e0e, alpha: 0.9 });
+    z1Bg.roundRect(0, 0, W - SIDE_PAD * 2, BATTLE_Z1_H, 8);
+    z1Bg.fill({ color: 0x1a1a2e, alpha: 0.9 });
     z1Bg.x = SIDE_PAD;
-    z1Bg.y = Z1_Y;
+    z1Bg.y = BATTLE_Z1_Y;
     this.addChild(z1Bg);
 
     const battleTitle = new Text({
@@ -100,16 +103,16 @@ export class BattleScene extends Scene {
       style: { fill: '#ff8866', fontSize: 12, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     battleTitle.x = INNER_X;
-    battleTitle.y = Z1_Y + 4;
+    battleTitle.y = BATTLE_Z1_Y + 4;
     this.addChild(battleTitle);
 
     const speedLabel = new Text({
-      text: `${PLAYBACK_SPEED}x`,
+      text: '4x',
       style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     speedLabel.anchor.set(1, 0);
     speedLabel.x = W - SIDE_PAD - 4;
-    speedLabel.y = Z1_Y + 4;
+    speedLabel.y = BATTLE_Z1_Y + 4;
     this.addChild(speedLabel);
 
     this.tickLabel = new Text({
@@ -117,90 +120,97 @@ export class BattleScene extends Scene {
       style: { fill: '#99aacc', fontSize: 10, fontFamily: 'Arial' },
     });
     this.tickLabel.x = INNER_X;
-    this.tickLabel.y = Z1_Y + 22;
+    this.tickLabel.y = BATTLE_Z1_Y + 20;
     this.addChild(this.tickLabel);
 
-    // HP条（敌方左 / 我方右，缩短适配竖屏）
-    const hpBarW = (W - SIDE_PAD * 2 - INNER_X * 2 - 20) / 2;
+    // ── ZEH: 敌方血条行 ──
+    const zehBg = new Graphics();
+    zehBg.roundRect(0, 0, W - SIDE_PAD * 2, BATTLE_ZEH_H, 4);
+    zehBg.fill({ color: 0x2a0e0e, alpha: 0.85 });
+    zehBg.x = SIDE_PAD;
+    zehBg.y = BATTLE_ZEH_Y;
+    this.addChild(zehBg);
 
-    const enemyHpLabel = new Text({ text: '敌', style: { fill: '#ff8866', fontSize: 10, fontFamily: 'Arial' } });
-    enemyHpLabel.x = INNER_X + 60;
-    enemyHpLabel.y = Z1_Y + 22;
+    const enemyHpLabel = new Text({ text: '敌', style: { fill: '#ff8866', fontSize: 11, fontFamily: 'Arial' } });
+    enemyHpLabel.x = INNER_X;
+    enemyHpLabel.y = BATTLE_ZEH_Y + 4;
     this.addChild(enemyHpLabel);
 
+    const hpBarW = W - SIDE_PAD * 2 - INNER_X - 30;
     this.enemyHpBar = new HpBar(snap0?.enemy.maxHp ?? 100, 0xd94a4a, hpBarW);
-    this.enemyHpBar.x = INNER_X + 76;
-    this.enemyHpBar.y = Z1_Y + 22;
+    this.enemyHpBar.x = INNER_X + 24;
+    this.enemyHpBar.y = BATTLE_ZEH_Y + 4;
     this.addChild(this.enemyHpBar);
 
-    const playerHpLabel = new Text({ text: '我', style: { fill: '#4ad97a', fontSize: 10, fontFamily: 'Arial' } });
-    playerHpLabel.x = INNER_X + 60 + hpBarW + 10;
-    playerHpLabel.y = Z1_Y + 22;
-    this.addChild(playerHpLabel);
-
-    this.playerHpBar = new HpBar(snap0?.player.maxHp ?? run.maxHp, 0x4ad97a, hpBarW);
-    this.playerHpBar.x = INNER_X + 76 + hpBarW + 10;
-    this.playerHpBar.y = Z1_Y + 22;
-    this.addChild(this.playerHpBar);
-
     this.enemyStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Arial' } });
-    this.enemyStatusText.x = INNER_X + 60;
-    this.enemyStatusText.y = Z1_Y + 36;
+    this.enemyStatusText.anchor.set(1, 0);
+    this.enemyStatusText.x = W - SIDE_PAD - 4;
+    this.enemyStatusText.y = BATTLE_ZEH_Y + 4;
     this.addChild(this.enemyStatusText);
 
-    this.playerStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Arial' } });
-    this.playerStatusText.x = INNER_X + 60 + hpBarW + 10;
-    this.playerStatusText.y = Z1_Y + 36;
-    this.addChild(this.playerStatusText);
-
-    // ── Z2: 敌方棋盘（竖屏：2行×5列）──
+    // ── Z2: 敌方棋盘 ──
     const z2Bg = new Graphics();
-    z2Bg.roundRect(0, 0, W - SIDE_PAD * 2, Z2_H, 10);
+    z2Bg.roundRect(0, 0, W - SIDE_PAD * 2, BATTLE_Z2_H, 8);
     z2Bg.fill({ color: 0x2a0e0e, alpha: 0.85 });
     z2Bg.x = SIDE_PAD;
-    z2Bg.y = Z2_Y;
+    z2Bg.y = BATTLE_Z2_Y;
     this.addChild(z2Bg);
-
-    const enemyLabel = new Text({ text: '敌方棋盘', style: { fill: '#ff8866', fontSize: 11, fontFamily: 'Arial' } });
-    enemyLabel.x = INNER_X;
-    enemyLabel.y = Z2_Y + 4;
-    this.addChild(enemyLabel);
 
     const enemyBoard = data.opponentBoard ?? [];
     for (const item of enemyBoard) {
       const card = new UnifiedCardView(item, 'battle');
       const pos = slotPos(item.slotIndex);
       card.x = INNER_X + pos.x;
-      card.y = Z2_CARD_Y + pos.y;
+      card.y = BATTLE_Z2_CARD_Y + pos.y;
       this.addChild(card);
       this.enemyCards.set(item.slotIndex, card);
     }
 
-    // ── Z3: 玩家棋盘（竖屏：2行×5列）──
+    // ── Z3: 玩家棋盘 ──
     const z3Bg = new Graphics();
-    z3Bg.roundRect(0, 0, W - SIDE_PAD * 2, Z3_H, 10);
+    z3Bg.roundRect(0, 0, W - SIDE_PAD * 2, BATTLE_Z3_H, 8);
     z3Bg.fill({ color: 0x14243a, alpha: 0.9 });
     z3Bg.x = SIDE_PAD;
-    z3Bg.y = Z3_Y;
+    z3Bg.y = BATTLE_Z3_Y;
     this.addChild(z3Bg);
-
-    const boardLabel = new Text({ text: '我的棋盘', style: { fill: '#8899aa', fontSize: 11, fontFamily: 'Arial' } });
-    boardLabel.x = INNER_X;
-    boardLabel.y = Z3_Y + 4;
-    this.addChild(boardLabel);
 
     for (const item of data.playerBoard) {
       const card = new UnifiedCardView(item, 'battle');
       const pos = slotPos(item.slotIndex);
       card.x = INNER_X + pos.x;
-      card.y = Z3_CARD_Y + pos.y;
+      card.y = BATTLE_Z3_CARD_Y + pos.y;
       this.addChild(card);
       this.playerCards.set(item.slotIndex, card);
     }
 
+    // ── ZPH: 我方血条行 ──
+    const zphBg = new Graphics();
+    zphBg.roundRect(0, 0, W - SIDE_PAD * 2, BATTLE_ZPH_H, 4);
+    zphBg.fill({ color: 0x0e2a14, alpha: 0.85 });
+    zphBg.x = SIDE_PAD;
+    zphBg.y = BATTLE_ZPH_Y;
+    this.addChild(zphBg);
+
+    const playerHpLabel = new Text({ text: '我', style: { fill: '#4ad97a', fontSize: 11, fontFamily: 'Arial' } });
+    playerHpLabel.x = INNER_X;
+    playerHpLabel.y = BATTLE_ZPH_Y + 4;
+    this.addChild(playerHpLabel);
+
+    this.playerHpBar = new HpBar(snap0?.player.maxHp ?? run.maxHp, 0x4ad97a, hpBarW);
+    this.playerHpBar.x = INNER_X + 24;
+    this.playerHpBar.y = BATTLE_ZPH_Y + 4;
+    this.addChild(this.playerHpBar);
+
+    this.playerStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Arial' } });
+    this.playerStatusText.anchor.set(1, 0);
+    this.playerStatusText.x = W - SIDE_PAD - 4;
+    this.playerStatusText.y = BATTLE_ZPH_Y + 4;
+    this.addChild(this.playerStatusText);
+
     // ── Z4: 底栏 ──
     const bar = new BottomBar();
     bar.update(run);
+    bar.y = H - Z4_H;
     this.addChild(bar);
 
     // ── 飘字层 ──
@@ -240,7 +250,7 @@ export class BattleScene extends Scene {
   private onTick = () => {
     if (this.battleDone) return;
     const dt = this.ticker!.deltaMS / 1000;
-    this.elapsed += dt * PLAYBACK_SPEED;
+    this.elapsed += dt * gameState.settings.playbackSpeed;
 
     const targetTick = Math.floor(this.elapsed * 1000 / BATTLE_TICK_MS);
 
@@ -271,9 +281,9 @@ export class BattleScene extends Scene {
   /** 敌方/我方棋盘在屏幕上的中心飘字位置 */
   private floatCenter(side: BattleSide): { x: number; y: number } {
     if (side === 'enemy') {
-      return { x: W / 2, y: Z2_CARD_Y + 20 };
+      return { x: W / 2, y: BATTLE_Z2_CARD_Y + 20 };
     }
-    return { x: W / 2, y: Z3_CARD_Y + 20 };
+    return { x: W / 2, y: BATTLE_Z3_CARD_Y + 20 };
   }
 
   private processEvent(ev: BattleEvent) {
@@ -332,7 +342,7 @@ export class BattleScene extends Scene {
       }
       case 'overtime': {
         sound.play('overtime');
-        this.spawnFloat(W / 2, Z1_Y + Z1_H + 4, `加时 -${ev.playerDmg}`, '#ff8800');
+        this.spawnFloat(W / 2, BATTLE_Z1_Y + BATTLE_Z1_H + 4, `加时 -${ev.playerDmg}`, '#ff8800');
         this.overtimeWarning.visible = true;
         break;
       }
