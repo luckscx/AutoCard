@@ -557,7 +557,7 @@ export class RunService {
 
     switch (choice.kind) {
       case 'unlock_slot': {
-        // boardSlots 已在 gainXp 中更新，此处无需额外操作
+        run.boardSlots = Math.min(10, run.boardSlots + 1);
         break;
       }
       case 'upgrade_item': {

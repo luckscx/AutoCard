@@ -52,22 +52,23 @@ export const BOTTOM_BAR_Y = Z4_Y;
 export const BOTTOM_BAR_H = Z4_H;
 
 // ── 战斗场景专用常量 ──
-export const BATTLE_Z1_Y  = 0;
-export const BATTLE_Z1_H  = 38;   // 顶部信息栏（标题+速度+Tick）
+// 玩家棋盘对齐部署阶段 Z3_Y=338，其余区块从这里向上/向下展开
+export const BATTLE_Z1_Y  = 170;  // 顶部信息栏（标题+速度+Tick）
+export const BATTLE_Z1_H  = 38;
 
-export const BATTLE_ZEH_Y = 42;   // 敌方血条行 Y
-export const BATTLE_ZEH_H = 20;   // 敌方血条行高
+export const BATTLE_ZEH_Y = 214;  // 敌方血条行
+export const BATTLE_ZEH_H = 22;
 
-export const BATTLE_Z2_Y  = 66;   // 敌方棋盘 Y
-export const BATTLE_Z2_H  = 90;   // 敌方棋盘高
-export const BATTLE_Z2_CARD_Y = BATTLE_Z2_Y + 14; // 卡牌起始Y
+export const BATTLE_Z2_Y  = 242;  // 敌方棋盘
+export const BATTLE_Z2_H  = 90;
+export const BATTLE_Z2_CARD_Y = BATTLE_Z2_Y + 14;
 
-export const BATTLE_Z3_Y  = 160;  // 玩家棋盘 Y
-export const BATTLE_Z3_H  = 90;   // 玩家棋盘高
-export const BATTLE_Z3_CARD_Y = BATTLE_Z3_Y + 14; // 卡牌起始Y
+export const BATTLE_Z3_Y  = 338;  // 玩家棋盘 — 与部署阶段 Z3_Y 对齐
+export const BATTLE_Z3_H  = 90;
+export const BATTLE_Z3_CARD_Y = BATTLE_Z3_Y + 14;
 
-export const BATTLE_ZPH_Y = 254;  // 我方血条行 Y
-export const BATTLE_ZPH_H = 20;   // 我方血条行高
+export const BATTLE_ZPH_Y = 434;  // 我方血条行
+export const BATTLE_ZPH_H = 22;
 
 export const TIER_COLORS: Record<string, number> = {
   bronze:    0xcd7f32,
