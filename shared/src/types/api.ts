@@ -108,6 +108,8 @@ export interface BuyItemRequest {
 }
 export interface BuyItemResponse {
   run: RunState;
+  merged: boolean;
+  mergedItem?: SlotItem;
 }
 
 export interface RefreshShopResponse {

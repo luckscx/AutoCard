@@ -144,11 +144,19 @@ export class ShopScene extends Scene {
       const canPlace = boardSlot >= 0 || stashSlot >= 0;
       const purchased = this.purchasedSet.has(idx);
 
+      // 检查是否可以升级（玩家已有同种卡牌且非最高阶）
+      const tierOrder = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
+      const hasSameItem = run.board.some(s => s.itemId === itemId)
+        || run.stash.some(s => s.itemId === itemId);
+      const ownedItem = run.board.find(s => s.itemId === itemId) || run.stash.find(s => s.itemId === itemId);
+      const canUpgrade = hasSameItem && ownedItem && tierOrder.indexOf(ownedItem.tier) < tierOrder.length - 1;
+
       const card = new ShopCardView(itemId, {
         purchased,
         canAfford: run.gold >= cfg.price,
         canPlace,
-        onBuy: !purchased && canPlace && run.gold >= cfg.price
+        canUpgrade,
+        onBuy: !purchased && (canPlace || canUpgrade) && run.gold >= cfg.price
           ? () => this.handleBuy(itemId, idx, target, slotIndex)
           : undefined,
       });
@@ -458,6 +466,18 @@ export class ShopScene extends Scene {
       gameState.setRun(result.run);
       sound.play('buy');
       this.purchasedSet.add(idx);
+
+      // 合并升级提示
+      if (result.merged && result.mergedItem) {
+        const cfg = gameState.itemsMap.get(itemId);
+        const tierNames: Record<string, string> = { bronze: '青铜', silver: '白银', gold: '黄金', diamond: '钻石', legendary: '传说' };
+        const tierOrder = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
+        const newTierIdx = tierOrder.indexOf(result.mergedItem.tier);
+        const prevTier = newTierIdx > 0 ? tierOrder[newTierIdx - 1] : 'bronze';
+        const name = cfg?.name ?? itemId;
+        alert(`⬆️ ${name} ${tierNames[prevTier] ?? ''} → ${tierNames[result.mergedItem.tier] ?? result.mergedItem.tier} 升级成功！`);
+      }
+
       this.render();
     } catch (e: any) {
       console.error('Buy failed:', e.message);

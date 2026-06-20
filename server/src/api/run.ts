@@ -70,8 +70,8 @@ router.post('/pvp', wrap(async (req, res) => {
 router.post('/buy', wrap(async (req, res) => {
   const userId = await getUserId(req);
   const { runId, itemId, target, slotIndex } = req.body;
-  const run = await runService.buyItem(runId, userId, itemId, target, slotIndex);
-  res.json({ run });
+  const result = await runService.buyItem(runId, userId, itemId, target, slotIndex);
+  res.json(result);
 }));
 
 router.post('/shop/refresh', wrap(async (req, res) => {

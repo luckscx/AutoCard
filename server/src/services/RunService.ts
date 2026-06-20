@@ -115,7 +115,7 @@ export class RunService {
     }
 
     if (choice === 'shop') {
-      const shopItems = this.generateShopItems(run.level);
+      const shopItems = this.generateShopItems(run.level, [...run.board, ...run.stash]);
       run.shopItems = shopItems;
       run.shopRefreshed = false;
       await run.save();
@@ -313,15 +313,60 @@ export class RunService {
     if (!cfg) throw new Error(`Unknown item: ${itemId}`);
     if (run.gold < cfg.price) throw new Error('Not enough gold');
 
-    const container = target === 'board' ? run.board : run.stash;
-    this.validatePlacement(container, cfg.size, slotIndex);
+    const tierOrder = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
 
-    run.gold -= cfg.price;
-    container.push({ itemId, tier: cfg.baseTier, size: cfg.size, slotIndex });
-    run.markModified(target === 'board' ? 'board' : 'stash');
+    // 检查棋盘+背包是否有同 itemId 的卡牌可合并升级
+    // 找到 tier 最低的同种卡牌（优先合并低阶卡，升阶效率最高）
+    // 注意：不能使用 {...s} 展开 Mongoose SubDocument，因为 getter 属性不是 own enumerable
+    const findSameItems = (container: typeof run.board, containerName: 'board' | 'stash') =>
+      container.filter(s => s.itemId === itemId).map(s => ({
+        itemId: s.itemId,
+        tier: s.tier as string,
+        size: s.size as number,
+        slotIndex: s.slotIndex as number,
+        _container: containerName,
+      }));
+    const sameItems = [
+      ...findSameItems(run.board, 'board'),
+      ...findSameItems(run.stash, 'stash'),
+    ];
+    // 按 tier 排序，选最低的
+    sameItems.sort((a, b) => tierOrder.indexOf(a.tier as any) - tierOrder.indexOf(b.tier as any));
+    const existingMatch = sameItems[0];
+
+    let merged = false;
+    let mergedItem: SlotItem | undefined;
+
+    if (existingMatch && tierOrder.indexOf(existingMatch.tier) < tierOrder.length - 1) {
+      const currentIdx = tierOrder.indexOf(existingMatch.tier);
+      // 合并：已有卡牌升阶，新买的卡牌消耗掉（不占用新格子）
+      const nextTier = tierOrder[currentIdx + 1];
+
+      // 找到原始 Mongoose 文档中的卡牌并修改
+      const container = existingMatch._container === 'board' ? run.board : run.stash;
+      const docItem = container.find(s => s.slotIndex === existingMatch.slotIndex && s.itemId === itemId);
+      if (docItem) {
+        docItem.tier = nextTier;
+        run.markModified('board');
+        run.markModified('stash');
+      }
+
+      run.gold -= cfg.price;
+      merged = true;
+      mergedItem = { itemId, tier: nextTier, size: existingMatch.size, slotIndex: existingMatch.slotIndex };
+    }
+
+    if (!merged) {
+      // 无可合并卡牌，正常放置
+      const container = target === 'board' ? run.board : run.stash;
+      this.validatePlacement(container, cfg.size, slotIndex);
+      run.gold -= cfg.price;
+      container.push({ itemId, tier: cfg.baseTier, size: cfg.size, slotIndex });
+      run.markModified(target === 'board' ? 'board' : 'stash');
+    }
+
     await run.save();
-
-    return toRunState(run);
+    return { run: toRunState(run), merged, mergedItem };
   }
 
   async refreshShopOnce(runId: string, userId: string) {
@@ -333,7 +378,7 @@ export class RunService {
 
     run.gold -= cost;
     run.shopRefreshed = true;
-    const shopItems = this.generateShopItems(run.level);
+    const shopItems = this.generateShopItems(run.level, [...run.board, ...run.stash]);
     run.shopItems = shopItems;
     await run.save();
 
@@ -633,7 +678,7 @@ export class RunService {
     return 0;
   }
 
-  private generateShopItems(level: number): string[] {
+  private generateShopItems(level: number, ownedItems?: SlotItem[]): string[] {
     // 从大巴扎物品池中选牌（有图片的优先，保证UI好看）
     const allBazaar = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => !i.itemId.startsWith('__'));
     // 优先选有图片的物品，但如果池子不够则 fallback 到全部
@@ -645,7 +690,25 @@ export class RunService {
       return true;
     });
     const base = pool.length > 0 ? pool : allBazaar;
+
+    // 升级机制：如果玩家已有卡牌，有概率刷出相同卡牌供升级
+    // 收集玩家已有卡牌的 itemId（可合并的，即非 legendary）
+    const tierOrder = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
+    const ownedUpgradeable = (ownedItems ?? []).filter(i => {
+      const idx = tierOrder.indexOf(i.tier as typeof tierOrder[number]);
+      return idx >= 0 && idx < tierOrder.length - 1;
+    });
+    const ownedItemIds = new Set(ownedUpgradeable.map(i => i.itemId));
+
     const pickOne = (): string => {
+      // 40% 概率刷出玩家已有的可升级卡牌
+      if (ownedItemIds.size > 0 && Math.random() < 0.4) {
+        const upgradeable = base.filter(i => ownedItemIds.has(i.itemId));
+        if (upgradeable.length > 0) {
+          return upgradeable[Math.floor(Math.random() * upgradeable.length)].itemId;
+        }
+      }
+      // 正常加权随机
       const weighted = base
         .map(i => ({ i, w: this.tierPickWeight(level, i.baseTier) }))
         .filter(x => x.w > 0);

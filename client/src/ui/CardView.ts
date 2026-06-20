@@ -184,7 +184,7 @@ function portSymbol(type: string): string {
 export class ShopCardView extends Container {
   constructor(
     itemId: string,
-    opts: { purchased?: boolean; canAfford?: boolean; canPlace?: boolean; onBuy?: () => void },
+    opts: { purchased?: boolean; canAfford?: boolean; canPlace?: boolean; canUpgrade?: boolean; onBuy?: () => void },
   ) {
     super();
     const cfg = gameState.itemsMap.get(itemId);
@@ -280,6 +280,18 @@ export class ShopCardView extends Container {
     // ── 购买状态区域 ──
     const statusY = h - BTN_AREA_H + 6;
 
+    // 可升级标记（卡牌右上角）
+    if (opts.canUpgrade && !opts.purchased) {
+      const upBadge = new Text({
+        text: '⬆️可升级',
+        style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+      });
+      upBadge.anchor.set(1, 0);
+      upBadge.x = w - 4;
+      upBadge.y = 3;
+      this.addChild(upBadge);
+    }
+
     if (opts.purchased) {
       const sold = new Text({ text: '已购', style: { fill: '#4ad97a', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' } });
       sold.anchor.set(0.5, 0);
@@ -292,7 +304,7 @@ export class ShopCardView extends Container {
       noGold.x = w / 2;
       noGold.y = statusY;
       this.addChild(noGold);
-    } else if (!opts.canPlace) {
+    } else if (!opts.canPlace && !opts.canUpgrade) {
       const noPlace = new Text({ text: '无法放置', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Arial' } });
       noPlace.anchor.set(0.5, 0);
       noPlace.x = w / 2;
@@ -302,14 +314,17 @@ export class ShopCardView extends Container {
       const btnW = Math.min(w - 16, 100);
       const btn = new Graphics();
       btn.roundRect(0, 0, btnW, 30, 6);
-      btn.fill(0x4a90d9);
+      btn.fill(opts.canUpgrade ? 0xd9944a : 0x4a90d9);
       btn.x = (w - btnW) / 2;
       btn.y = statusY;
       btn.eventMode = 'static';
       btn.cursor = 'pointer';
       btn.on('pointertap', opts.onBuy);
       this.addChild(btn);
-      const btnText = new Text({ text: '购买', style: { fill: '#fff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' } });
+      const btnText = new Text({
+        text: opts.canUpgrade ? '升级' : '购买',
+        style: { fill: '#fff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      });
       btnText.anchor.set(0.5);
       btnText.x = w / 2;
       btnText.y = statusY + 15;
