@@ -71,7 +71,7 @@ export class UnifiedCardView extends Container {
   private _readyPulse = 0;
   private _readyFlashed = false;
   private _elapsed = 0;            // 累计时间(ms)，供 sin 波使用
-  private _beamOffset = 0;         // 扫光线在光柱内的偏移比例 [0,1]
+  // _beamOffset 已废弃，扫光线改由 _elapsed 驱动（全卡同步）
   private _tickerCb: ((ticker: Ticker) => void) | null = null;
 
   private w: number;
@@ -375,8 +375,7 @@ export class UnifiedCardView extends Container {
       this.cooldownBeam.alpha = 0;
     } else {
       this.cooldownBar.alpha = 1;
-      // 扫光线：在光柱范围内从底部到顶部循环滚动，周期 ~1.2s
-      this._beamOffset = (this._beamOffset + ticker.deltaMS / 1200) % 1;
+      // 扫光线：由 _elapsed 驱动，周期 1200ms，全卡同步
       this._drawBeam();
     }
 
@@ -391,7 +390,7 @@ export class UnifiedCardView extends Container {
   // 扫光线绘制（Ticker 每帧调用）
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /** 在光柱已填充区域内绘制向上移动的扫光线 */
+  /** 在光柱已填充区域内绘制向上移动的扫光线（用 _elapsed 驱动，全卡同步） */
   private _drawBeam() {
     const ratio = this._cooldownProgress;
     if (ratio <= 0) {
@@ -400,19 +399,23 @@ export class UnifiedCardView extends Container {
     }
     const w = this.w;
     const h = this.h;
-    const fillH = h * ratio;        // 光柱总高度（从底部往上）
-    const fillY = h - fillH;        // 光柱起始 Y
+    const fillH = h * ratio;        // 光柱高度（从底往上）
+    const fillY = h - fillH;        // 光柱顶部 Y
 
-    // 扫光线在光柱内的当前 Y（从底部往顶部）
-    const beamY = fillY + fillH * (1 - this._beamOffset);
-    const beamH = Math.max(3, fillH * 0.12); // 光线高度约 12% 光柱
+    // 扫光线在光柱内从底→顶的进度，周期 1200ms
+    // offset = 0 → 底部，offset = 1 → 顶部
+    const offset = (this._elapsed % 1200) / 1200;
+    const beamH = Math.max(2, fillH * 0.05); // 光线高度约 5% 光柱（细线）
+
+    // 光线中心 Y：从底部(h) 到顶部(fillY)
+    const beamCenterY = h - offset * fillH;
 
     this.cooldownBeam.clear();
-    // 光线主体（纯白高亮，低透明度）
-    this.cooldownBeam.rect(1, beamY - beamH, w - 2, beamH);
+    // 光线主体
+    this.cooldownBeam.rect(1, beamCenterY - beamH, w - 2, beamH);
     this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.45 });
-    // 光线顶端边缘（更亮更细）
-    this.cooldownBeam.rect(1, beamY - beamH - 1, w - 2, 2);
+    // 顶端更亮的细边
+    this.cooldownBeam.rect(1, beamCenterY - beamH - 1, w - 2, 2);
     this.cooldownBeam.fill({ color: 0xffffff, alpha: 0.85 });
   }
 
