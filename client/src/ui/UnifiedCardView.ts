@@ -647,16 +647,10 @@ export class UnifiedCardView extends Container {
       if (dx * dx + dy * dy > 64) endPress();
     };
 
-    // 全局点击一次就隐藏 tooltip（任意卡牌或空白区都关）
-    const globalTap = () => {
-      UnifiedCardView._tooltip?.hide();
-    };
-
     this.on('pointerdown', startPress);
     this.on('pointerup', endPress);
     this.on('pointerupoutside', endPress);
     this.on('pointermove', onMove);
-    this.on('pointertap', globalTap);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

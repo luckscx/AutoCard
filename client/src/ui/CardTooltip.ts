@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import type { FederatedPointerEvent } from 'pixi.js';
 import type { ItemConfig } from '@autocard/shared';
 import { W, H, TIER_COLORS, TIER_BG, tierHex } from './layout.js';
 
@@ -35,6 +36,8 @@ interface LineSpec {
 export class CardTooltip extends Container {
   private _panel: Graphics;
   private _texts: Text[] = [];
+  /** 已注册到 stage 的一次性关闭监听，避免重复注册 */
+  private _stageCloseHandler: ((e: FederatedPointerEvent) => void) | null = null;
 
   constructor() {
     super();
@@ -50,6 +53,9 @@ export class CardTooltip extends Container {
   /** 显示悬浮详情，anchorX/anchorY 为触发卡牌的世界坐标中心 */
   show(cfg: ItemConfig, tier: string, anchorX: number, anchorY: number) {
     this.visible = true;
+
+    // 先清掉上一次可能残留的 stage 监听
+    this._removeStageListener();
 
     // 清除旧内容
     this._panel.clear();
@@ -160,9 +166,36 @@ export class CardTooltip extends Container {
     this._panel.fill({ color: bgColor, alpha: 0.97 });
     this._panel.roundRect(0, 0, TOOLTIP_W, tooltipH, CORNER);
     this._panel.stroke({ color: borderColor, width: 2 });
+
+    // 走到根 stage，注册一次性 pointerup：任何地方松手就关闭
+    let stage: Container | null = this as Container;
+    while (stage.parent) stage = stage.parent as Container;
+    if (stage && stage !== (this as Container)) {
+      stage.eventMode = 'static';
+      // 用 setTimeout 0 延迟注册，避免触发本次长按 pointerup 把自己立刻关掉
+      setTimeout(() => {
+        if (!this.visible) return;
+        const handler = (_e: FederatedPointerEvent) => {
+          this.hide();
+        };
+        this._stageCloseHandler = handler;
+        (stage as Container).once('pointerup', handler);
+      }, 0);
+    }
+  }
+
+  private _removeStageListener() {
+    if (!this._stageCloseHandler) return;
+    let stage: Container | null = this as Container;
+    while (stage.parent) stage = stage.parent as Container;
+    if (stage && stage !== (this as Container)) {
+      (stage as Container).off('pointerup', this._stageCloseHandler);
+    }
+    this._stageCloseHandler = null;
   }
 
   hide() {
+    this._removeStageListener();
     this.visible = false;
   }
 }
