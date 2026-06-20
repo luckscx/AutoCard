@@ -1,6 +1,9 @@
 import type { SlotItem, BattleSide, BattleEvent, BattleSnapshot, CardRuntimeState, ItemConfig } from '@autocard/shared';
 import { TIER_MULTIPLIER, BATTLE_TICK_MS, BATTLE_OVERTIME_SEC, BATTLE_MAX_SEC } from '@autocard/shared';
-import { ITEMS_MAP } from '../config/index.js';
+import { ITEMS_MAP, BAZAAR_ITEMS_MAP } from '../config/index.js';
+
+// 合并两张物品表（bazaar 物品优先），供引擎内部查询
+const ALL_ITEMS_MAP = new Map([...ITEMS_MAP, ...BAZAAR_ITEMS_MAP]);
 import { resolveTarget } from './resolveTarget.js';
 import { applyKindPassives } from './kindPassives.js';
 
@@ -47,11 +50,11 @@ function getCardState(side: SideState, slotIndex: number): CardRuntimeState | un
 function getItemConfig(board: SlotItem[], slotIndex: number): ItemConfig | undefined {
   const slot = board.find(s => s.slotIndex === slotIndex);
   if (!slot) return undefined;
-  return ITEMS_MAP.get(slot.itemId);
+  return ALL_ITEMS_MAP.get(slot.itemId);
 }
 
 function getBoardConfigs(board: SlotItem[]): ItemConfig[] {
-  return board.map(s => ITEMS_MAP.get(s.itemId)).filter((c): c is ItemConfig => c != null);
+  return board.map(s => ALL_ITEMS_MAP.get(s.itemId)).filter((c): c is ItemConfig => c != null);
 }
 
 function getTierMul(board: SlotItem[], slotIndex: number): number {
