@@ -3,6 +3,7 @@ import {
   INITIAL_PRESTIGE, XP_PER_LEVEL, PVP_WINS_TO_WIN,
   HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel, boardSlotsForLevel,
   type RunState, type BattleResult, type SlotItem, type PendingLevelUpState,
+  type Tier, type ItemSize,
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
 import { PvpMirrorModel } from '../models/PvpMirror.js';
@@ -321,8 +322,8 @@ export class RunService {
     const findSameItems = (container: typeof run.board, containerName: 'board' | 'stash') =>
       container.filter(s => s.itemId === itemId).map(s => ({
         itemId: s.itemId,
-        tier: s.tier as string,
-        size: s.size as number,
+        tier: s.tier as Tier,
+        size: s.size as ItemSize,
         slotIndex: s.slotIndex as number,
         _container: containerName,
       }));
