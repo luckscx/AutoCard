@@ -65,8 +65,16 @@ function makeSnapshot(tick: number, player: SideState, enemy: SideState): Battle
     tick,
     player: { hp: player.hp, maxHp: player.maxHp, shield: player.shield, poison: player.poison, burn: player.burn },
     enemy: { hp: enemy.hp, maxHp: enemy.maxHp, shield: enemy.shield, poison: enemy.poison, burn: enemy.burn },
-    playerCards: player.cards.map(c => ({ ...c })),
-    enemyCards: enemy.cards.map(c => ({ ...c })),
+    playerCards: player.cards.map(c => {
+      const cfg = getItemConfig(player.board, c.slotIndex);
+      const cooldown = cfg?.cooldown ?? 1;
+      return { ...c, cooldownProgress: Math.min(c.cooldownProgress / cooldown, 1) };
+    }),
+    enemyCards: enemy.cards.map(c => {
+      const cfg = getItemConfig(enemy.board, c.slotIndex);
+      const cooldown = cfg?.cooldown ?? 1;
+      return { ...c, cooldownProgress: Math.min(c.cooldownProgress / cooldown, 1) };
+    }),
   };
 }
 
@@ -284,9 +292,7 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
       }
     }
 
-    if (tick % 10 === 0) {
-      snapshots.push(makeSnapshot(tick, player, enemy));
-    }
+    snapshots.push(makeSnapshot(tick, player, enemy));
 
     if (player.hp <= 0 || enemy.hp <= 0) break;
   }

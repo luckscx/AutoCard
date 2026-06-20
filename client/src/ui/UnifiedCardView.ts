@@ -415,7 +415,7 @@ export class UnifiedCardView extends Container {
     }
 
     // ── 充能进度条 ──────────────────────────────────────────────────────────
-    // ✅ 修复：cooldownProgress 已是 0~1，直接使用不再除以 cooldown
+    // cooldownProgress 由后端归一化为 0~1（makeSnapshot 中除以 cfg.cooldown）
     const ratio = Math.min(Math.max(cs.cooldownProgress, 0), 1);
     this._cooldownProgress = ratio;
     const isDestroyed = cs.destroyed || cs.freezeRemain > 0;

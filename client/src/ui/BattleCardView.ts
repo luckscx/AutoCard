@@ -207,7 +207,7 @@ export class BattleCardView extends Container {
 
     // ── 充能进度条 ──────────────────────────────────────────────────────────
     this.cdBar.clear();
-    const ratio = Math.min(cs.cooldownProgress / this.cooldown, 1);
+    const ratio = Math.min(Math.max(cs.cooldownProgress, 0), 1);
     const isHidden = cs.destroyed || cs.freezeRemain > 0;
 
     if (isHidden) {
