@@ -14,6 +14,7 @@ import {
 import { HOUR_TYPE } from '@autocard/shared';
 import type { SlotItem } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
+import { showUpgradeEffect } from '../ui/UpgradeEffect.js';
 
 export class MainScene extends Scene {
   private sm: SceneManager;
@@ -246,6 +247,7 @@ export class MainScene extends Scene {
           gameState.setRun(result.run);
           this.refresh();
           this.renderZ2();
+          showUpgradeEffect(this, `⬆️ 升至 Lv.${pending.level}！${choice.label}`, 0xffd700);
         } catch (e: any) {
           console.error('levelup choice failed:', e.message);
           alert(e.message || '升级选择失败');

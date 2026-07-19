@@ -13,9 +13,10 @@ import {
   W, SIDE_PAD, INNER_X,
   Z1_Y, Z1_H, Z2_Y, Z2_H, Z2_LABEL_Y, Z2_CARD_Y,
   Z3_Y, Z3_H, Z3_CARD_Y,
-  CARD_UNIT, CARD_GAP,
+  CARD_UNIT, CARD_GAP, TIER_COLORS,
 } from '../ui/layout.js';
 import { shopRefreshCostForLevel } from '@autocard/shared';
+import { showUpgradeEffect } from '../ui/UpgradeEffect.js';
 
 interface ShopData {
   run: RunState;
@@ -466,8 +467,10 @@ export class ShopScene extends Scene {
       gameState.setRun(result.run);
       sound.play('buy');
       this.purchasedSet.add(idx);
+      this.render();
 
-      // 合并升级提示
+      // 合并升级提示 — 使用动效替代原生弹窗，避免打断战斗节奏；须在 render() 之后添加，
+      // 否则会被 render() 内的 removeChildren() 立即清空
       if (result.merged && result.mergedItem) {
         const cfg = gameState.itemsMap.get(itemId);
         const tierNames: Record<string, string> = { bronze: '青铜', silver: '白银', gold: '黄金', diamond: '钻石', legendary: '传说' };
@@ -475,10 +478,12 @@ export class ShopScene extends Scene {
         const newTierIdx = tierOrder.indexOf(result.mergedItem.tier);
         const prevTier = newTierIdx > 0 ? tierOrder[newTierIdx - 1] : 'bronze';
         const name = cfg?.name ?? itemId;
-        alert(`⬆️ ${name} ${tierNames[prevTier] ?? ''} → ${tierNames[result.mergedItem.tier] ?? result.mergedItem.tier} 升级成功！`);
+        showUpgradeEffect(
+          this,
+          `⬆️ ${name} ${tierNames[prevTier] ?? ''} → ${tierNames[result.mergedItem.tier] ?? result.mergedItem.tier} 升级成功！`,
+          TIER_COLORS[result.mergedItem.tier] ?? 0xffd700,
+        );
       }
-
-      this.render();
     } catch (e: any) {
       console.error('Buy failed:', e.message);
     }
