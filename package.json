@@ -14,7 +14,11 @@
     "build": "npm run build:shared && cd server && npx tsc && cd ../client && npx vite build"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "concurrently": "^9.2.1",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

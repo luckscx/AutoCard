@@ -12,6 +12,13 @@ export interface JwtPayload {
 export class AuthService {
   /** 注册新用户 */
   async register(username: string, password: string, nickname?: string) {
+    // 用户名格式校验：3-24 位，仅允许字母/数字/下划线
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+      throw new Error('用户名须为3-24位字母、数字或下划线');
+    }
+    if (!password || password.length < 6) {
+      throw new Error('密码至少6个字符');
+    }
     const existing = await UserModel.findOne({ username });
     if (existing) throw new Error('用户名已存在');
 
@@ -47,7 +54,7 @@ export class AuthService {
   /** 验证 JWT token，返回 payload 或 null */
   verifyToken(token: string): JwtPayload | null {
     try {
-      return jwt.verify(token, JWT_SECRET) as JwtPayload;
+      return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
     } catch {
       return null;
     }
