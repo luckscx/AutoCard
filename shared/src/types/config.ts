@@ -53,17 +53,36 @@ export interface EventConfig {
   eventId: string;
   name: string;
   description: string;
+  /** 事件出现条件，全部满足才可出现，留空则无条件 */
+  conditions?: EventCondition[];
+  /** 英雄专属事件：仅指定英雄可遇到 */
+  heroId?: string;
+  /** 事件稀有度：common 默认 60% 权重，rare 30%，epic 10% */
+  rarity?: 'common' | 'rare' | 'epic';
   options: EventOption[];
+}
+
+export interface EventCondition {
+  /** 条件类型 */
+  type: 'minLevel' | 'minGold' | 'minHpPercent' | 'hasItem' | 'hasTag' | 'dayGte';
+  /** 条件值：数字或字符串 */
+  value: number | string;
 }
 
 export interface EventOption {
   label: string;
   effects: EventEffect[];
+  /** 选项出现条件，不满足则隐藏此选项 */
+  condition?: EventCondition;
 }
 
 export interface EventEffect {
-  type: 'gold' | 'xp' | 'hp' | 'item' | 'removeItem';
+  type: 'gold' | 'xp' | 'hp' | 'item' | 'removeItem' | 'buff' | 'debuff' | 'healPercent' | 'shield';
   value: number | string;
+  /** 效果生效概率 0~1，不填则 100% 生效 */
+  chance?: number;
+  /** buff/debuff 类型特有：持续天数 */
+  duration?: number;
 }
 
 export interface LevelUpReward {

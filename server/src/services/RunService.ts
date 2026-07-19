@@ -4,7 +4,7 @@ import {
   HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel, boardSlotsForLevel,
   DAILY_BASE_INCOME, PRESTIGE_LOSS_PER_DEFEAT, PRESTIGE_LOSS_CAP,
   type RunState, type BattleResult, type SlotItem, type PendingLevelUpState,
-  type Tier, type ItemSize,
+  type Tier, type ItemSize, type EventConfig,
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
 import { PvpMirrorModel } from '../models/PvpMirror.js';
@@ -125,18 +125,26 @@ export class RunService {
     }
 
     if (choice === 'event') {
-      const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+      const ev = this.pickRandomEvent(run);
       run.pendingEvent = {
         eventId: ev.eventId,
         name: ev.name,
         description: ev.description,
-        options: ev.options.map(o => ({ label: o.label })),
+        options: ev.options
+          .filter(o => !o.condition || this.checkCondition(o.condition, run))
+          .map(o => ({ label: o.label })),
       };
       run.markModified('pendingEvent');
       await run.save();
+      const evConfig = EVENTS.find(e => e.eventId === ev.eventId)!;
       return {
         run: toRunState(run),
-        event: { eventId: ev.eventId, options: ev.options.map(o => ({ label: o.label })) },
+        event: {
+          eventId: ev.eventId,
+          options: evConfig.options
+            .filter(o => !o.condition || this.checkCondition(o.condition, run))
+            .map(o => ({ label: o.label })),
+        },
       };
     }
 
@@ -428,12 +436,22 @@ export class RunService {
 
     const ev = EVENTS.find(e => e.eventId === eventId);
     if (!ev) throw new Error(`Unknown event: ${eventId}`);
-    if (optionIndex < 0 || optionIndex >= ev.options.length) throw new Error('Invalid option');
 
-    const effects = ev.options[optionIndex].effects;
-    const applied: { type: string; value: number | string }[] = [];
+    // 过滤掉条件不满足的选项后校验索引
+    const visibleOptions = ev.options.filter(o => !o.condition || this.checkCondition(o.condition, run));
+    if (optionIndex < 0 || optionIndex >= visibleOptions.length) throw new Error('Invalid option');
+
+    const effects = visibleOptions[optionIndex].effects;
+    const applied: { type: string; value: number | string; rolled?: boolean }[] = [];
 
     for (const eff of effects) {
+      // 概率判定：chance < 1 时掷骰
+      if (eff.chance !== undefined && eff.chance < 1) {
+        if (Math.random() > eff.chance) {
+          applied.push({ type: eff.type, value: eff.value, rolled: false });
+          continue;
+        }
+      }
       switch (eff.type) {
         case 'gold': {
           const goldValue = eff.value as number;
@@ -444,11 +462,54 @@ export class RunService {
         }
         case 'xp': this.gainXp(run, eff.value as number); break;
         case 'hp': run.hp = Math.min(run.maxHp, Math.max(1, run.hp + (eff.value as number))); break;
+        case 'healPercent': {
+          const pct = eff.value as number;
+          const healAmt = Math.floor(run.maxHp * pct / 100);
+          run.hp = Math.min(run.maxHp, run.hp + healAmt);
+          break;
+        }
+        case 'shield': {
+          // 护盾效果：增加 hpRegen 临时值
+          run.hpRegen = (run.hpRegen ?? 0) + (eff.value as number);
+          break;
+        }
+        case 'buff': {
+          const buffType = eff.value as string;
+          if (buffType === 'upgrade_random') {
+            // 随机升级一张卡牌
+            const tierOrder = ['bronze', 'silver', 'gold', 'diamond', 'legendary'] as const;
+            const allItems = [...run.board, ...run.stash];
+            const upgradeable = allItems.filter(i => {
+              const idx = tierOrder.indexOf(i.tier as typeof tierOrder[number]);
+              return idx >= 0 && idx < tierOrder.length - 1;
+            });
+            if (upgradeable.length > 0) {
+              const target = upgradeable[Math.floor(Math.random() * upgradeable.length)];
+              const nextTier = tierOrder[tierOrder.indexOf(target.tier as typeof tierOrder[number]) + 1];
+              target.tier = nextTier;
+              run.markModified('board');
+              run.markModified('stash');
+            }
+          } else if (buffType === 'income') {
+            run.income = (run.income ?? 0) + (eff.duration ?? 1);
+          } else if (buffType === 'hp_regen') {
+            run.hpRegen = (run.hpRegen ?? 0) + (eff.duration ?? 1);
+          } else if (buffType === 'gold_bonus') {
+            run.goldGainBonus = (run.goldGainBonus ?? 0) + (eff.duration ?? 1);
+          }
+          break;
+        }
+        case 'debuff': {
+          // debuff 效果：减少属性
+          const debuffType = eff.value as string;
+          if (debuffType === 'lose_income' && (run.income ?? 0) > 0) {
+            run.income = Math.max(0, (run.income ?? 0) - 1);
+          }
+          break;
+        }
         case 'item': {
           // 简化：放入储物箱第一个空位
-          const id = typeof eff.value === 'string' && eff.value.startsWith('random_')
-            ? this.randomItemByTier(eff.value.replace('random_', '') as any, run.heroId)
-            : eff.value as string;
+          const id = this.resolveItemValue(eff.value, run.heroId);
           const cfg = ALL_ITEMS_MAP.get(id);
           if (cfg) {
             const freeSlot = this.findFreeSlot(run.stash, cfg.size);
@@ -470,7 +531,7 @@ export class RunService {
           break;
         }
       }
-      applied.push({ type: eff.type, value: eff.value });
+      applied.push({ type: eff.type, value: eff.value, rolled: true });
     }
 
     run.pendingEvent = null;
@@ -810,5 +871,107 @@ export class RunService {
       return { itemId, tier, size: cfg.size, slotIndex: i };
     });
     return { heroId: hero.heroId, level, board, hp, maxHp: hp };
+  }
+
+  /**
+   * 根据条件过滤、英雄匹配和稀有度权重，随机选择一个事件
+   */
+  private pickRandomEvent(run: IRun): EventConfig {
+    const eligible = EVENTS.filter(ev => {
+      // 英雄专属事件：仅匹配当前英雄
+      if (ev.heroId && ev.heroId !== run.heroId) return false;
+      // 事件出现条件：全部满足
+      if (ev.conditions && !ev.conditions.every(c => this.checkCondition(c, run))) return false;
+      return true;
+    });
+
+    if (eligible.length === 0) {
+      // 降级：返回第一个通用事件
+      return EVENTS.find(e => !e.heroId && (!e.conditions || e.conditions.length === 0)) ?? EVENTS[0];
+    }
+
+    // 稀有度权重随机
+    const RARITY_WEIGHT: Record<string, number> = { common: 60, rare: 30, epic: 10 };
+    const weighted = eligible.map(ev => ({
+      ev,
+      w: RARITY_WEIGHT[ev.rarity ?? 'common'] ?? 60,
+    }));
+    const sum = weighted.reduce((s, x) => s + x.w, 0);
+    let r = Math.random() * sum;
+    for (const x of weighted) {
+      r -= x.w;
+      if (r <= 0) return x.ev;
+    }
+    return weighted[0].ev;
+  }
+
+  /**
+   * 检查单个条件是否满足
+   */
+  private checkCondition(cond: { type: string; value: number | string }, run: IRun): boolean {
+    switch (cond.type) {
+      case 'minLevel': return run.level >= (cond.value as number);
+      case 'minGold': return run.gold >= (cond.value as number);
+      case 'minHpPercent': return (run.hp / run.maxHp) * 100 >= (cond.value as number);
+      case 'dayGte': return run.day >= (cond.value as number);
+      case 'hasItem': {
+        const allItems = [...run.board, ...run.stash];
+        return allItems.some(i => i.itemId === cond.value);
+      }
+      case 'hasTag': {
+        const allItems = [...run.board, ...run.stash];
+        return allItems.some(i => {
+          const cfg = ALL_ITEMS_MAP.get(i.itemId);
+          return cfg && cfg.tags.includes(cond.value as string);
+        });
+      }
+      default: return true;
+    }
+  }
+
+  /**
+   * 解析事件效果的物品值，支持 random_tier 和 random_kind 两种前缀
+   */
+  private resolveItemValue(value: number | string, heroId?: string): string {
+    if (typeof value !== 'string') return String(value);
+
+    // random_burn / random_shield / random_potion / random_property / random_vehicle / random_weapon
+    const kindMap: Record<string, string[]> = {
+      burn: ['poison', 'burn'],
+      shield: ['shield'],
+      potion: ['potion'],
+      property: ['property'],
+      vehicle: ['vehicle'],
+      weapon: ['weapon'],
+    };
+
+    if (value.startsWith('random_')) {
+      const suffix = value.replace('random_', '');
+      // 先检查是否是 kind 类别
+      if (kindMap[suffix]) {
+        return this.randomItemByKinds(kindMap[suffix], heroId);
+      }
+      // 否则按 tier 处理（bronze/silver/gold/diamond）
+      return this.randomItemByTier(suffix, heroId);
+    }
+    return value;
+  }
+
+  /**
+   * 按 Kind 标签随机选一个物品
+   */
+  private randomItemByKinds(kinds: string[], heroId?: string): string {
+    const allItems = Array.from(ALL_ITEMS_MAP.values());
+    const heroFiltered = heroId
+      ? allItems.filter(i => !i.sourceHero || i.sourceHero === heroId)
+      : allItems;
+    const candidates = heroFiltered.filter(i =>
+      i.kinds && i.kinds.some(k => kinds.includes(k)) && i.image,
+    );
+    const fallback = heroFiltered.filter(i => i.kinds && i.kinds.some(k => kinds.includes(k)));
+    const pool = candidates.length > 0 ? candidates : fallback;
+    return pool.length > 0
+      ? pool[Math.floor(Math.random() * pool.length)].itemId
+      : this.randomItemByTier('bronze', heroId);
   }
 }
