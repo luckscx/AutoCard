@@ -5,6 +5,12 @@ export const XP_PER_LEVEL = 8;
 export const INITIAL_PRESTIGE = 20;
 export const PVP_WINS_TO_WIN = 10;
 
+/** 每天基础收入（天开始时自动获得） */
+export const DAILY_BASE_INCOME = 2;
+
+/** PvP 败场声望扣除基数（实际扣除 = min(day, PRESTIGE_LOSS_CAP)） */
+export const PRESTIGE_LOSS_PER_DEFEAT = 1;
+
 export const HOUR_TYPE = {
   1: 'choice',
   2: 'choice',
@@ -14,11 +20,12 @@ export const HOUR_TYPE = {
   6: 'pvp',
 } as const;
 
+/** 商店刷新金币：随等级提高 */
 export const SHOP_REFRESH_COST: Record<string, number> = {
-  bronze: 2,
-  silver: 4,
-  gold: 6,
-  diamond: 8,
+  bronze: 1,
+  silver: 2,
+  gold: 4,
+  diamond: 6,
 };
 
 /** 商店刷新金币：随等级提高 */

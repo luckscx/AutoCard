@@ -2,6 +2,7 @@ import type { Types } from 'mongoose';
 import {
   INITIAL_PRESTIGE, XP_PER_LEVEL, PVP_WINS_TO_WIN,
   HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel, boardSlotsForLevel,
+  DAILY_BASE_INCOME, PRESTIGE_LOSS_PER_DEFEAT,
   type RunState, type BattleResult, type SlotItem, type PendingLevelUpState,
   type Tier, type ItemSize,
 } from '@autocard/shared';
@@ -310,7 +311,7 @@ export class RunService {
         run.status = 'finished_win';
       }
     } else {
-      run.prestige -= run.day;
+      run.prestige -= PRESTIGE_LOSS_PER_DEFEAT;
       if (run.prestige <= 0) {
         run.prestige = 0;
         run.status = 'finished_lose';
@@ -666,9 +667,10 @@ export class RunService {
     if (run.hour > HOURS_PER_DAY) {
       run.hour = 1;
       run.day += 1;
-      // income 结算：每天开始获得金币
-      if (run.income > 0) {
-        run.gold += run.income;
+      // 每天开始：基础收入 + income 加成
+      const dailyIncome = DAILY_BASE_INCOME + (run.income ?? 0);
+      if (dailyIncome > 0) {
+        run.gold += dailyIncome;
       }
     }
   }
