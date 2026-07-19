@@ -4,6 +4,7 @@ import { LobbyScene } from './scenes/LobbyScene.js';
 import { MainScene } from './scenes/MainScene.js';
 import { BattleScene } from './scenes/BattleScene.js';
 import { ShopScene } from './scenes/ShopScene.js';
+import { LeaderboardScene } from './scenes/LeaderboardScene.js';
 
 // 竖屏设计分辨率（9:19.3，近似 390×844）
 const DESIGN_W = 390;
@@ -38,6 +39,7 @@ async function boot() {
   sm.register('main', new MainScene(sm));
   sm.register('battle', new BattleScene(sm));
   sm.register('shop', new ShopScene(sm));
+  sm.register('leaderboard', new LeaderboardScene(sm));
 
   await sm.goto('lobby');
 }

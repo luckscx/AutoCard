@@ -8,6 +8,7 @@ import { configRouter } from './api/config.js';
 import { userRouter } from './api/user.js';
 import { authRouter } from './api/auth.js';
 import { profileRouter } from './api/profile.js';
+import { leaderboardRouter } from './api/leaderboard.js';
 import { optionalAuth } from './middleware/auth.js';
 
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use('/api/auth', authRouter);
 // 公开路由：配置数据
 app.use('/api/config', configRouter);
 app.use('/api/profile', profileRouter);
+app.use('/api/leaderboard', leaderboardRouter);
 
 // 可选认证路由：兼容旧版 x-user-id 和新版 JWT
 app.use('/api/user', optionalAuth, userRouter);

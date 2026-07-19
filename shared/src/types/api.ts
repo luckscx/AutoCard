@@ -202,3 +202,25 @@ export interface PlayerProfile {
 export interface GetProfileResponse {
   profile: PlayerProfile;
 }
+
+// --- 排行榜系统 [4.4] ---
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  score: number;
+  wins: number;          // 通关次数
+  pvpWins: number;       // 总 PvP 胜场
+  pvpWinRate: number;    // 0~1
+  farthestDay: number;   // 历史最远天数
+  bestLevel: number;     // 历史最高等级
+}
+
+export type LeaderboardMetric = 'score' | 'wins' | 'pvpWins' | 'farthestDay' | 'bestLevel';
+
+export interface GetLeaderboardResponse {
+  metric: LeaderboardMetric;
+  entries: LeaderboardEntry[];
+}

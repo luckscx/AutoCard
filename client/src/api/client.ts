@@ -4,7 +4,7 @@ import type {
   PlaceItemResponse, MergeItemResponse,
   BuyItemResponse, RefreshShopResponse, LeaveShopResponse, EventChoiceResponse,
   SellItemResponse, SwapItemsResponse,
-  UserMeResponse, LevelUpChoiceResponse,
+  UserMeResponse, LevelUpChoiceResponse, GetLeaderboardResponse,
 } from '@autocard/shared';
 import type { HeroConfig, ItemConfig, MonsterConfig, EventConfig } from '@autocard/shared';
 
@@ -167,4 +167,8 @@ export const api = {
   getUserMe: () => request<UserMeResponse>('GET', '/user/me'),
   patchNickname: (nickname: string) =>
     request<UserMeResponse>('PATCH', '/user/nickname', { nickname }),
+
+  // Leaderboard [4.4]
+  getLeaderboard: (metric: string = 'score', limit: number = 50) =>
+    request<GetLeaderboardResponse>('GET', `/leaderboard?metric=${metric}&limit=${limit}`),
 };

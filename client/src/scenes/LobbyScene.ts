@@ -113,6 +113,13 @@ export class LobbyScene extends Scene {
         });
         this.addChild(logout);
 
+        // 排行榜入口按钮
+        const lbBtn = new Button('🏆 排行榜', 100, 32, 0x4a90d9);
+        lbBtn.x = W / 2 - 50;
+        lbBtn.y = 120;
+        lbBtn.on('pointertap', () => this.sm.goto('leaderboard'));
+        this.addChild(lbBtn);
+
         // 显示 GitHub 登录按钮（未绑定 GitHub 时才显示）
         const hasGithub = me.oauthProviders?.some(p => p.provider === 'github');
         if (!hasGithub) {
@@ -213,7 +220,7 @@ export class LobbyScene extends Scene {
   private addGitHubLoginButton() {
     const loginBtn = new Button('GitHub 登录', 120, 36, 0x24292e);
     loginBtn.x = W / 2 - 60;
-    loginBtn.y = 120;
+    loginBtn.y = 158;
     loginBtn.on('pointertap', () => {
       window.location.href = getGitHubLoginUrl();
     });
