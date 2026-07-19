@@ -1426,6 +1426,548 @@ export const ITEMS: ItemConfig[] = [
     sourceHero: 'pygmalien',
     tags: ['牧师', '护盾加速'],
   },
+
+  // ========================================
+  // 六、朱尔斯专属物品（15个）→ jules
+  // Build A: 欢乐加速, Build B: 美食护盾, Build C: 暴击盛宴
+  // ========================================
+
+  // --- Build A - 欢乐加速（5个）---
+
+  // J01 欢乐铃铛
+  {
+    itemId: 'j01_joy_bell',
+    name: '欢乐铃铛',
+    nameEn: 'Joy Bell',
+    description: '加速所有物品 2s，每场战斗首次触发效果翻倍',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 10,
+    ports: [
+      { category: 'operational', type: 'haste', value: 2 },
+    ],
+    targetRule: { kind: 'all' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '欢乐加速'],
+  },
+
+  // J02 快乐滤镜
+  {
+    itemId: 'j02_happy_lens',
+    name: '快乐滤镜',
+    nameEn: 'Happy Lens',
+    description: '被动：每次有物品被加速，自身获得护盾 8',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '欢乐加速'],
+  },
+
+  // J03 派对礼花
+  {
+    itemId: 'j03_party_popper',
+    name: '派对礼花',
+    nameEn: 'Party Popper',
+    description: '加速相邻物品 3s，同时造成伤害 15',
+    size: 2,
+    baseTier: 'silver',
+    price: 5,
+    cooldown: 8,
+    ports: [
+      { category: 'output', type: 'damage', value: 15 },
+      { category: 'operational', type: 'haste', value: 3 },
+    ],
+    targetRule: { kind: 'adjacent' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '欢乐加速'],
+  },
+
+  // J04 疯狂节拍器
+  {
+    itemId: 'j04_crazy_metronome',
+    name: '疯狂节拍器',
+    nameEn: 'Crazy Metronome',
+    description: '被动：相邻物品每触发一次，此物品 CD -1s',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 6,
+    ports: [
+      { category: 'operational', type: 'haste', value: 1 },
+    ],
+    targetRule: { kind: 'adjacent' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '欢乐加速'],
+  },
+
+  // J05 欢乐颂歌
+  {
+    itemId: 'j05_joy_anthem',
+    name: '欢乐颂歌',
+    nameEn: 'Joy Anthem',
+    description: '被动：所有被加速的物品，效果值 +25%（仅本场）',
+    size: 1,
+    baseTier: 'silver',
+    price: 5,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '欢乐加速'],
+  },
+
+  // --- Build B - 美食护盾（5个）---
+
+  // J06 奶油泡芙
+  {
+    itemId: 'j06_cream_puff',
+    name: '奶油泡芙',
+    nameEn: 'Cream Puff',
+    description: '治疗 + 护盾双端口，溢出治疗转为护盾',
+    size: 2,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 8,
+    ports: [
+      { category: 'defense', type: 'heal', value: 15 },
+      { category: 'defense', type: 'shield', value: 15 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '美食护盾'],
+  },
+
+  // J07 果酱面包
+  {
+    itemId: 'j07_jam_bread',
+    name: '果酱面包',
+    nameEn: 'Jam Bread',
+    description: '护盾存在时，每秒治疗 3 HP',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 10,
+    ports: [
+      { category: 'defense', type: 'shield', value: 20 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '美食护盾'],
+  },
+
+  // J08 巧克力堡垒
+  {
+    itemId: 'j08_chocolate_fortress',
+    name: '巧克力堡垒',
+    nameEn: 'Chocolate Fortress',
+    description: '大量护盾，护盾破碎时治疗 20 HP',
+    size: 3,
+    baseTier: 'silver',
+    price: 6,
+    cooldown: 12,
+    ports: [
+      { category: 'defense', type: 'shield', value: 60 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '美食护盾'],
+  },
+
+  // J09 糖衣护甲
+  {
+    itemId: 'j09_sugar_coating',
+    name: '糖衣护甲',
+    nameEn: 'Sugar Coating',
+    description: '被动：每场战斗开始时获得护盾 15，护盾不随战斗结束清零',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '美食护盾'],
+  },
+
+  // J10 甜蜜庇护所
+  {
+    itemId: 'j10_sweet_sanctuary',
+    name: '甜蜜庇护所',
+    nameEn: 'Sweet Sanctuary',
+    description: '被动：护盾存在期间，受到伤害减少 20%',
+    size: 2,
+    baseTier: 'gold',
+    price: 8,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '美食护盾'],
+  },
+
+  // --- Build C - 暴击盛宴（5个）---
+
+  // J11 胡椒粉碎机
+  {
+    itemId: 'j11_pepper_grinder',
+    name: '胡椒粉碎机',
+    nameEn: 'Pepper Grinder',
+    description: '高速攻击，自带 20% 暴击率，暴击时额外附加灼烧 3',
+    size: 2,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 3,
+    ports: [
+      { category: 'output', type: 'damage', value: 12 },
+    ],
+    targetRule: { kind: 'self' },
+    critRate: 0.2,
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '暴击盛宴'],
+  },
+
+  // J12 辛辣炸弹
+  {
+    itemId: 'j12_spicy_bomb',
+    name: '辛辣炸弹',
+    nameEn: 'Spicy Bomb',
+    description: '暴击时灼烧伤害 ×2，暴击率 +15%',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 8,
+    ports: [
+      { category: 'output', type: 'burn', value: 15 },
+    ],
+    targetRule: { kind: 'self' },
+    critRate: 0.15,
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '暴击盛宴'],
+  },
+
+  // J13 厨师徽章
+  {
+    itemId: 'j13_chef_badge',
+    name: '厨师徽章',
+    nameEn: 'Chef Badge',
+    description: '被动：每场战斗第 3 次暴击后，所有物品暴击率 +10%（叠加）',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '暴击盛宴'],
+  },
+
+  // J14 完美调味
+  {
+    itemId: 'j14_perfect_seasoning',
+    name: '完美调味',
+    nameEn: 'Perfect Seasoning',
+    description: '被动：暴击伤害 +50%，但基础暴击率 -10%',
+    size: 1,
+    baseTier: 'silver',
+    price: 5,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '暴击盛宴'],
+  },
+
+  // J15 终极盛宴
+  {
+    itemId: 'j15_ultimate_feast',
+    name: '终极盛宴',
+    nameEn: 'Ultimate Feast',
+    description: '被动：每有一张朱尔斯专属物品在棋盘上，暴击率 +8%',
+    size: 2,
+    baseTier: 'gold',
+    price: 8,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'jules',
+    tags: ['朱尔斯', '暴击盛宴'],
+  },
+
+  // ========================================
+  // 七、麦克专属物品（15个）→ mak
+  // Build A: 剧毒炼金, Build B: 灼烧药剂, Build C: 冰霜试剂
+  // ========================================
+
+  // --- Build A - 剧毒炼金（5个）---
+
+  // K01 毒蛇之牙
+  {
+    itemId: 'k01_viper_fang',
+    name: '毒蛇之牙',
+    nameEn: 'Viper Fang',
+    description: '施加剧毒 6，敌方已中毒时剧毒 ×1.5',
+    size: 1,
+    baseTier: 'bronze',
+    price: 2,
+    cooldown: 4,
+    ports: [
+      { category: 'output', type: 'poison', value: 6 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '剧毒炼金'],
+  },
+
+  // K02 炼金坩埚
+  {
+    itemId: 'k02_alchemy_cauldron',
+    name: '炼金坩埚',
+    nameEn: 'Alchemy Cauldron',
+    description: '大量剧毒，CD较长但剧毒持续8s',
+    size: 3,
+    baseTier: 'silver',
+    price: 6,
+    cooldown: 15,
+    ports: [
+      { category: 'output', type: 'poison', value: 30 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '剧毒炼金'],
+  },
+
+  // K03 毒素增幅器
+  {
+    itemId: 'k03_toxin_amplifier',
+    name: '毒素增幅器',
+    nameEn: 'Toxin Amplifier',
+    description: '被动：所有毒效果持续时间 +2s',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '剧毒炼金'],
+  },
+
+  // K04 腐蚀药瓶
+  {
+    itemId: 'k04_corrosive_flask',
+    name: '腐蚀药瓶',
+    nameEn: 'Corrosive Flask',
+    description: '被动：敌方中毒层数 ≥3 时，每秒额外造成 5 伤害',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '剧毒炼金'],
+  },
+
+  // K05 瘟疫之源
+  {
+    itemId: 'k05_plague_source',
+    name: '瘟疫之源',
+    nameEn: 'Plague Source',
+    description: '被动：每场战斗开始时，敌方自动中毒 8/s 持续 5s',
+    size: 2,
+    baseTier: 'silver',
+    price: 5,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '剧毒炼金'],
+  },
+
+  // --- Build B - 灼烧药剂（5个）---
+
+  // K06 灼热药瓶
+  {
+    itemId: 'k06_blazing_potion',
+    name: '灼热药瓶',
+    nameEn: 'Blazing Potion',
+    description: '施加灼烧 8，灼烧期间敌方被减速 1s',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 6,
+    ports: [
+      { category: 'output', type: 'burn', value: 8 },
+      { category: 'operational', type: 'slow', value: 1 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '灼烧药剂'],
+  },
+
+  // K07 炼金火焰
+  {
+    itemId: 'k07_alchemist_flame',
+    name: '炼金火焰',
+    nameEn: 'Alchemist Flame',
+    description: '灼烧叠加类：每次触发灼烧 +5，叠加不清零（上限+50）',
+    size: 2,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 5,
+    ports: [
+      { category: 'output', type: 'burn', value: 10 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '灼烧药剂'],
+  },
+
+  // K08 硫磺炸弹
+  {
+    itemId: 'k08_sulfur_bomb',
+    name: '硫磺炸弹',
+    nameEn: 'Sulfur Bomb',
+    description: '大量灼烧 + 减速，敌方灼烧期间伤害加深 15%',
+    size: 2,
+    baseTier: 'silver',
+    price: 5,
+    cooldown: 12,
+    ports: [
+      { category: 'output', type: 'burn', value: 20 },
+      { category: 'operational', type: 'slow', value: 3 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '灼烧药剂'],
+  },
+
+  // K09 催化灯芯
+  {
+    itemId: 'k09_catalyst_wick',
+    name: '催化灯芯',
+    nameEn: 'Catalyst Wick',
+    description: '被动：灼烧效果每秒额外 +3 伤害，敌方灼烧层数越高加成越高',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '灼烧药剂'],
+  },
+
+  // K10 炼狱核心
+  {
+    itemId: 'k10_inferno_core',
+    name: '炼狱核心',
+    nameEn: 'Inferno Core',
+    description: '被动：灼烧结束时立即造成等于总灼烧伤害 30% 的爆发伤害',
+    size: 2,
+    baseTier: 'gold',
+    price: 8,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '灼烧药剂'],
+  },
+
+  // --- Build C - 冰霜试剂（5个）---
+
+  // K11 冰晶试剂
+  {
+    itemId: 'k11_ice_crystal_reagent',
+    name: '冰晶试剂',
+    nameEn: 'Ice Crystal Reagent',
+    description: '冻结敌方 1s，冻结结束时附加毒 5',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 8,
+    ports: [
+      { category: 'operational', type: 'freeze', value: 1 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '冰霜试剂'],
+  },
+
+  // K12 霜毒混合物
+  {
+    itemId: 'k12_frost_poison_mix',
+    name: '霜毒混合物',
+    nameEn: 'Frost Poison Mix',
+    description: '同时施加毒 8 + 冻结 1s，冻结期间毒伤 ×1.5',
+    size: 2,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 7,
+    ports: [
+      { category: 'output', type: 'poison', value: 8 },
+      { category: 'operational', type: 'freeze', value: 1 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '冰霜试剂'],
+  },
+
+  // K13 冰封药鼎
+  {
+    itemId: 'k13_frozen_cauldron',
+    name: '冰封药鼎',
+    nameEn: 'Frozen Cauldron',
+    description: '冻结敌方 2s，冻结结束后灼烧 10/s 持续 3s',
+    size: 2,
+    baseTier: 'silver',
+    price: 5,
+    cooldown: 14,
+    ports: [
+      { category: 'operational', type: 'freeze', value: 2 },
+      { category: 'output', type: 'burn', value: 10 },
+    ],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '冰霜试剂'],
+  },
+
+  // K14 极寒萃取液
+  {
+    itemId: 'k14_extreme_cold_extract',
+    name: '极寒萃取液',
+    nameEn: 'Extreme Cold Extract',
+    description: '被动：冻结持续时间 +1s，敌方冻结时毒/灼烧伤害 +30%',
+    size: 1,
+    baseTier: 'bronze',
+    price: 3,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '冰霜试剂'],
+  },
+
+  // K15 绝对零度圣杯
+  {
+    itemId: 'k15_absolute_zero_grail',
+    name: '绝对零度圣杯',
+    nameEn: 'Absolute Zero Grail',
+    description: '被动：每场战斗首次冻结后，所有毒/灼烧物品 CD 缩短 30%',
+    size: 2,
+    baseTier: 'gold',
+    price: 8,
+    cooldown: 0,
+    ports: [],
+    targetRule: { kind: 'self' },
+    sourceHero: 'mak',
+    tags: ['麦克', '冰霜试剂'],
+  },
 ];
 
 export const ITEMS_MAP = new Map<string, ItemConfig>(ITEMS.map(i => [i.itemId, i]));
