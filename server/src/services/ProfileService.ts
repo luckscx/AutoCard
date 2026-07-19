@@ -50,34 +50,35 @@ export class ProfileService {
 
     // 1. 历史 Run 聚合
     const runs = await RunModel.find({ userId }).lean<IRun[]>();
-    const runsById = new Map(runs.map((r) => [r._id!.toString(), r]));
+    const totalRuns = runs.length;
 
-    let totalRuns = runs.length;
     let wins = 0;
     let losses = 0;
     let farthestDay = 0;
     let bestLevel = 0;
     const heroRunCount = new Map<string, number>();
+    for (const run of runs) {
+      if (run.status === 'finished_win') wins++;
+      if (run.status === 'finished_lose') losses++;
+      farthestDay = Math.max(farthestDay, run.day);
+      bestLevel = Math.max(bestLevel, run.level);
+      heroRunCount.set(run.heroId, (heroRunCount.get(run.heroId) ?? 0) + 1);
+    }
+
+    // 统计字段必须覆盖完整历史；recentLimit 仅限制展示列表。
     const recentRuns: RunHistoryEntry[] = runs
       .slice()
       .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
       .slice(0, recentLimit)
-      .map((r) => {
-        if (r.status === 'finished_win') wins++;
-        if (r.status === 'finished_lose') losses++;
-        farthestDay = Math.max(farthestDay, r.day);
-        bestLevel = Math.max(bestLevel, r.level);
-        heroRunCount.set(r.heroId, (heroRunCount.get(r.heroId) ?? 0) + 1);
-        return {
-          runId: r._id!.toString(),
-          heroId: r.heroId,
-          status: r.status,
-          day: r.day,
-          pvpWins: r.pvpWins,
-          level: r.level,
-          finishedAt: (r.updatedAt ?? r.createdAt).toISOString(),
-        };
-      });
+      .map((r) => ({
+        runId: r._id!.toString(),
+        heroId: r.heroId,
+        status: r.status,
+        day: r.day,
+        pvpWins: r.pvpWins,
+        level: r.level,
+        finishedAt: (r.updatedAt ?? r.createdAt).toISOString(),
+      }));
 
     const favoriteHero = heroRunCount.size
       ? [...heroRunCount.entries()].sort((a, b) => b[1] - a[1])[0][0]
