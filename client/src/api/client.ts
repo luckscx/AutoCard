@@ -52,6 +52,11 @@ export function getGitHubLoginUrl(): string {
   return `${BASE}/auth/github`;
 }
 
+/** 获取微信 OAuth 登录地址 */
+export function getWechatLoginUrl(): string {
+  return `${BASE}/auth/wechat`;
+}
+
 async function request<T>(method: string, path: string, body?: any, retries = 3): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {

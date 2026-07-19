@@ -129,4 +129,94 @@ router.get('/github/callback', async (req, res) => {
   }
 });
 
+/**
+ * 微信 OAuth 登录入口
+ * 重定向用户到微信网页授权页面（snsapi_userinfo）
+ */
+router.get('/wechat', (_req, res) => {
+  const appid = process.env.WECHAT_APPID;
+  if (!appid) {
+    res.status(500).json({ error: '微信 OAuth 未配置' });
+    return;
+  }
+  const redirectUri = `${process.env.WECHAT_CALLBACK_URL || `${process.env.SERVER_URL || 'http://localhost:3000'}/api/auth/wechat/callback`}`;
+  const state = crypto.randomUUID();
+  res.cookie('oauth_state', state, { httpOnly: true, maxAge: 600_000, sameSite: 'lax' });
+  const wechatAuthUrl = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appid}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=snsapi_userinfo&state=${state}#wechat_redirect`;
+  res.redirect(wechatAuthUrl);
+});
+
+/**
+ * 微信 OAuth 回调
+ * 用 code 换取 access_token + openid，再获取用户信息，签发 JWT
+ */
+router.get('/wechat/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query as { code?: string; state?: string };
+    const cookieState = req.cookies?.oauth_state;
+
+    if (!code || !state || state !== cookieState) {
+      res.status(400).json({ error: '无效的 OAuth 回调参数' });
+      return;
+    }
+    res.clearCookie('oauth_state');
+
+    const appid = process.env.WECHAT_APPID!;
+    const secret = process.env.WECHAT_APPSECRET!;
+    const redirectUri = `${process.env.WECHAT_CALLBACK_URL || `${process.env.SERVER_URL || 'http://localhost:3000'}/api/auth/wechat/callback`}`;
+
+    // 用 code 换 access_token + openid
+    const tokenRes = await fetch(`https://api.weixin.qq.com/sns/oauth2/access_token?appid=${appid}&secret=${secret}&code=${code}&grant_type=authorization_code`);
+    const tokenData = await tokenRes.json() as {
+      access_token?: string; openid?: string; unionid?: string; errcode?: number; errmsg?: string;
+    };
+    if (!tokenData.access_token || !tokenData.openid) {
+      console.error('微信 token exchange failed:', tokenData);
+      res.status(400).json({ error: `微信授权失败: ${tokenData.errmsg || 'unknown'}` });
+      return;
+    }
+    const { access_token: accessToken, openid } = tokenData;
+
+    // 获取微信用户信息
+    const userRes = await fetch(`https://api.weixin.qq.com/sns/userinfo?access_token=${accessToken}&openid=${openid}&lang=zh_CN`);
+    const wxUser = await userRes.json() as {
+      openid: string; nickname?: string; headimgurl?: string; unionid?: string;
+    };
+
+    if (!wxUser.openid) {
+      res.status(400).json({ error: '获取微信用户信息失败' });
+      return;
+    }
+
+    const wechatId = wxUser.unionid || wxUser.openid;
+    let user = await UserModel.findOne({ 'oauthProviders.provider': 'wechat', 'oauthProviders.providerId': wechatId });
+
+    if (!user) {
+      const uid = `wx_${wechatId}`;
+      user = await UserModel.create({
+        openId: uid,
+        nickname: wxUser.nickname || `微信用户_${wechatId.slice(0, 6)}`,
+        avatarUrl: wxUser.headimgurl,
+        oauthProviders: [{ provider: 'wechat', providerId: wechatId, accessToken }],
+      });
+      console.log(`新用户通过微信 OAuth 注册: ${user.nickname} (${user._id})`);
+    } else {
+      const provider = user.oauthProviders?.find(p => p.provider === 'wechat');
+      if (provider) provider.accessToken = accessToken;
+      if (wxUser.headimgurl) user.avatarUrl = wxUser.headimgurl;
+      await user.save();
+    }
+
+    // 签发 JWT 并重定向到前端
+    const jwtToken = authService.signTokenForUser(user);
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const redirectUrl = `${clientUrl}/?auth=wechat&token=${jwtToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
+    res.redirect(redirectUrl);
+  } catch (e: any) {
+    console.error('微信 OAuth callback error:', e.message);
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    res.redirect(`${clientUrl}/?auth=error&message=${encodeURIComponent(e.message)}`);
+  }
+});
+
 export { router as authRouter };

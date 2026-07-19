@@ -1,7 +1,7 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js'
-import { api, authApi, setUserId, getGitHubLoginUrl } from '../api/client.js';
+import { api, authApi, setUserId, getGitHubLoginUrl, getWechatLoginUrl } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import { W, H, SIDE_PAD } from '../ui/layout.js';
 import { showAuthOverlay } from '../ui/AuthOverlay.js';
@@ -125,9 +125,15 @@ export class LobbyScene extends Scene {
         if (!hasGithub) {
           this.addGitHubLoginButton();
         }
+        // 显示微信登录按钮（未绑定微信时才显示）
+        const hasWechat = me.oauthProviders?.some(p => p.provider === 'wechat');
+        if (!hasWechat) {
+          this.addWechatLoginButton();
+        }
       } else {
-        // 未登录，显示 GitHub 登录按钮
+        // 未登录，显示 GitHub + 微信登录按钮
         this.addGitHubLoginButton();
+        this.addWechatLoginButton();
       }
 
       this.maybeShowTutorial();
@@ -201,6 +207,18 @@ export class LobbyScene extends Scene {
         }
         console.log(`GitHub 登录成功: ${nickname || uid}`);
       }
+    } else if (authType === 'wechat') {
+      const uid = params.get('uid');
+      const nickname = params.get('nickname');
+      const token = params.get('token');
+      if (uid) {
+        setUserId(uid);
+        if (token) {
+          // 微信 OAuth 成功后保存 JWT
+          authApi.saveLogin({ token, user: { userId: uid, nickname: nickname || uid } });
+        }
+        console.log(`微信登录成功: ${nickname || uid}`);
+      }
     } else if (authType === 'error') {
       const message = params.get('message') || '登录失败';
       console.error('OAuth 登录失败:', message);
@@ -223,6 +241,17 @@ export class LobbyScene extends Scene {
     loginBtn.y = 158;
     loginBtn.on('pointertap', () => {
       window.location.href = getGitHubLoginUrl();
+    });
+    this.addChild(loginBtn);
+  }
+
+  /** 添加微信登录按钮 */
+  private addWechatLoginButton() {
+    const loginBtn = new Button('微信登录', 120, 36, 0x07c160);
+    loginBtn.x = W / 2 - 60;
+    loginBtn.y = 200;
+    loginBtn.on('pointertap', () => {
+      window.location.href = getWechatLoginUrl();
     });
     this.addChild(loginBtn);
   }
