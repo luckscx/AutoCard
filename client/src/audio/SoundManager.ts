@@ -5,7 +5,11 @@
 
 export type SoundType =
   | 'click'        // 按钮点击：短促高频 click
-  | 'damage'       // 受伤：低沉打击
+  | 'damage1'      // 攻击命中变体1：清脆打击
+  | 'damage2'      // 攻击命中变体2：重击
+  | 'damage3'      // 攻击命中变体3：利刃
+  | 'hurt1'        // 受伤变体1：闷响
+  | 'hurt2'        // 受伤变体2：低频冲击
   | 'heal'         // 治疗：上升柔和音
   | 'shield'       // 护盾：金属叮声
   | 'card_trigger' // 卡牌触发：快速 blip
@@ -17,7 +21,9 @@ export type SoundType =
   | 'charge'       // 充能：蓄力上升
   | 'buy'          // 购买：硬币+叮
   | 'sell'         // 卖出：硬币滑落
-  | 'refresh';     // 刷新：洗牌嗖嗖
+  | 'refresh'      // 刷新：洗牌嗖嗖
+  | 'win'          // 胜利：上升和弦
+  | 'lose';        // 失败：下降和弦
 
 export class SoundManager {
   /** 全局静音开关 */
@@ -93,8 +99,20 @@ export class SoundManager {
         case 'click':
           this.playClick(ctx, now);
           break;
-        case 'damage':
-          this.playDamage(ctx, now);
+        case 'damage1':
+          this.playDamage1(ctx, now);
+          break;
+        case 'damage2':
+          this.playDamage2(ctx, now);
+          break;
+        case 'damage3':
+          this.playDamage3(ctx, now);
+          break;
+        case 'hurt1':
+          this.playHurt1(ctx, now);
+          break;
+        case 'hurt2':
+          this.playHurt2(ctx, now);
           break;
         case 'heal':
           this.playHeal(ctx, now);
@@ -132,11 +150,29 @@ export class SoundManager {
         case 'refresh':
           this.playRefresh(ctx, now);
           break;
+        case 'win':
+          this.playWin(ctx, now);
+          break;
+        case 'lose':
+          this.playLose(ctx, now);
+          break;
       }
     } catch (e) {
       // Web Audio 不可用时静默降级
       console.warn('[SoundManager] 播放失败:', e);
     }
+  }
+
+  /** 随机播放攻击命中音效（3种变体） */
+  playRandomHit(): void {
+    const variants: SoundType[] = ['damage1', 'damage2', 'damage3'];
+    this.play(variants[Math.floor(Math.random() * variants.length)]);
+  }
+
+  /** 随机播放受伤音效（2种变体） */
+  playRandomHurt(): void {
+    const variants: SoundType[] = ['hurt1', 'hurt2'];
+    this.play(variants[Math.floor(Math.random() * variants.length)]);
   }
 
   // ── 各音效实现 ──────────────────────────────────────────────
@@ -156,22 +192,94 @@ export class SoundManager {
     osc.stop(now + 0.05);
   }
 
-  /** 受伤：低沉打击 (sawtooth, 200→80Hz, 0.15s) + 噪声 */
-  private playDamage(ctx: AudioContext, now: number): void {
-    // 锯齿波主体
+  /** 攻击命中变体1：清脆打击 (sine, 500→250Hz, 0.08s) + 短噪声 */
+  private playDamage1(ctx: AudioContext, now: number): void {
     const osc = ctx.createOscillator();
-    const oscGain = this.makeGain(ctx, 0.4, 0.002, 0.148, now);
+    const oscGain = this.makeGain(ctx, 0.35, 0.002, 0.078, now);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(500, now);
+    osc.frequency.exponentialRampToValueAtTime(250, now + 0.08);
+    osc.connect(oscGain);
+    oscGain.connect(this.getDest());
+    osc.start(now);
+    osc.stop(now + 0.08);
+
+    // 短噪声点缀
+    const noise = this.makeNoise(ctx, 0.04);
+    const noiseGain = this.makeGain(ctx, 0.15, 0.001, 0.039, now);
+    noise.connect(noiseGain);
+    noiseGain.connect(this.getDest());
+    noise.start(now);
+    noise.stop(now + 0.04);
+  }
+
+  /** 攻击命中变体2：重击 (sawtooth, 180→60Hz, 0.12s) + 噪声冲击 */
+  private playDamage2(ctx: AudioContext, now: number): void {
+    const osc = ctx.createOscillator();
+    const oscGain = this.makeGain(ctx, 0.45, 0.002, 0.118, now);
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(200, now);
-    osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.12);
+    osc.connect(oscGain);
+    oscGain.connect(this.getDest());
+    osc.start(now);
+    osc.stop(now + 0.12);
+
+    const noise = this.makeNoise(ctx, 0.06);
+    const noiseGain = this.makeGain(ctx, 0.2, 0.001, 0.059, now);
+    noise.connect(noiseGain);
+    noiseGain.connect(this.getDest());
+    noise.start(now);
+    noise.stop(now + 0.06);
+  }
+
+  /** 攻击命中变体3：利刃 (triangle, 1200→600Hz, 0.06s) + 高频噪声 */
+  private playDamage3(ctx: AudioContext, now: number): void {
+    const osc = ctx.createOscillator();
+    const oscGain = this.makeGain(ctx, 0.25, 0.001, 0.059, now);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.06);
+    osc.connect(oscGain);
+    oscGain.connect(this.getDest());
+    osc.start(now);
+    osc.stop(now + 0.06);
+
+    const noise = this.makeNoise(ctx, 0.03);
+    const noiseGain = this.makeGain(ctx, 0.12, 0.001, 0.029, now);
+    noise.connect(noiseGain);
+    noiseGain.connect(this.getDest());
+    noise.start(now);
+    noise.stop(now + 0.03);
+  }
+
+  /** 受伤变体1：闷响 (sine, 150→60Hz, 0.18s) */
+  private playHurt1(ctx: AudioContext, now: number): void {
+    const osc = ctx.createOscillator();
+    const gain = this.makeGain(ctx, 0.35, 0.003, 0.177, now);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.18);
+    osc.connect(gain);
+    gain.connect(this.getDest());
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
+  /** 受伤变体2：低频冲击 (sawtooth, 120→40Hz, 0.15s) + 噪声 */
+  private playHurt2(ctx: AudioContext, now: number): void {
+    const osc = ctx.createOscillator();
+    const oscGain = this.makeGain(ctx, 0.3, 0.003, 0.147, now);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
     osc.connect(oscGain);
     oscGain.connect(this.getDest());
     osc.start(now);
     osc.stop(now + 0.15);
 
-    // 噪声冲击
     const noise = this.makeNoise(ctx, 0.08);
-    const noiseGain = this.makeGain(ctx, 0.25, 0.001, 0.079, now);
+    const noiseGain = this.makeGain(ctx, 0.15, 0.002, 0.078, now);
     noise.connect(noiseGain);
     noiseGain.connect(this.getDest());
     noise.start(now);
@@ -389,6 +497,66 @@ export class SoundManager {
       osc.start(t);
       osc.stop(t + 0.06);
     });
+  }
+
+  /** 胜利：上升三和弦 (C4→E4→G4, 各 0.2s, 渐强) */
+  private playWin(ctx: AudioContext, now: number): void {
+    const notes = [261.63, 329.63, 392.00]; // C4, E4, G4
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.15;
+      const osc = ctx.createOscillator();
+      const gain = this.makeGain(ctx, 0.3 + i * 0.05, 0.01, 0.35, t);
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      osc.connect(gain);
+      gain.connect(this.getDest());
+      osc.start(t);
+      osc.stop(t + 0.4);
+    });
+
+    // 最后一个高八度 C5 闪耀
+    const t3 = now + 0.5;
+    const osc5 = ctx.createOscillator();
+    const gain5 = this.makeGain(ctx, 0.25, 0.01, 0.5, t3);
+    osc5.type = 'sine';
+    osc5.frequency.setValueAtTime(523.25, t3); // C5
+    osc5.connect(gain5);
+    gain5.connect(this.getDest());
+    osc5.start(t3);
+    osc5.stop(t3 + 0.55);
+  }
+
+  /** 失败：下降二和弦 (G4→Eb4→C4, 渐弱) */
+  private playLose(ctx: AudioContext, now: number): void {
+    const notes = [392.00, 311.13, 261.63]; // G4, Eb4, C4
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.2;
+      const osc = ctx.createOscillator();
+      const gain = this.makeGain(ctx, 0.25 - i * 0.05, 0.01, 0.3, t);
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.95, t + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.getDest());
+      osc.start(t);
+      osc.stop(t + 0.4);
+    });
+
+    // 低沉结尾
+    const tEnd = now + 0.7;
+    const oscLow = ctx.createOscillator();
+    const gainLow = this.makeGain(ctx, 0.2, 0.01, 0.5, tEnd);
+    oscLow.type = 'sine';
+    oscLow.frequency.setValueAtTime(130.81, tEnd); // C3
+    oscLow.frequency.exponentialRampToValueAtTime(65.41, tEnd + 0.5); // C2
+    oscLow.connect(gainLow);
+    gainLow.connect(this.getDest());
+    oscLow.start(tEnd);
+    oscLow.stop(tEnd + 0.55);
   }
 }
 

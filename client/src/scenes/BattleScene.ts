@@ -46,6 +46,17 @@ export class BattleScene extends Scene {
   private battleDone = false;
   private resultShown = false;
 
+  /** 战斗节奏控制：临时回放速度倍率（<1 为慢放，>1 为加速） */
+  private tempoMultiplier = 1;
+  /** 慢放结束时间（秒），用于节奏恢复 */
+  private slowMoEndTime = 0;
+  /** 战斗结算停顿标记 */
+  private settlementPaused = false;
+  /** 结算停顿剩余时间（秒） */
+  private settlementRemain = 0;
+  /** 上一 tick 的敌方 HP（用于检测击杀） */
+  private lastEnemyHp: number | null = null;
+
   private playerCards: Map<number, UnifiedCardView> = new Map();
   private enemyCards: Map<number, UnifiedCardView> = new Map();
   private playerHpBar!: HpBar;
@@ -74,6 +85,11 @@ export class BattleScene extends Scene {
     this.elapsed = 0;
     this.battleDone = false;
     this.resultShown = false;
+    this.tempoMultiplier = 1;
+    this.slowMoEndTime = 0;
+    this.settlementPaused = false;
+    this.settlementRemain = 0;
+    this.lastEnemyHp = null;
     this.playerCards.clear();
     this.enemyCards.clear();
 
@@ -249,8 +265,25 @@ export class BattleScene extends Scene {
 
   private onTick = () => {
     if (this.battleDone) return;
+
     const dt = this.ticker!.deltaMS / 1000;
-    this.elapsed += dt * gameState.settings.playbackSpeed;
+
+    // 结算停顿：冻结回放推进，只倒计时
+    if (this.settlementPaused) {
+      this.settlementRemain -= dt;
+      if (this.settlementRemain <= 0) {
+        this.settlementPaused = false;
+      }
+      return;
+    }
+
+    // 节奏恢复：慢放到期后恢复正常
+    if (this.slowMoEndTime > 0 && this.elapsed >= this.slowMoEndTime) {
+      this.tempoMultiplier = 1;
+      this.slowMoEndTime = 0;
+    }
+
+    this.elapsed += dt * gameState.settings.playbackSpeed * this.tempoMultiplier;
 
     const targetTick = Math.floor(this.elapsed * 1000 / BATTLE_TICK_MS);
 
@@ -274,7 +307,19 @@ export class BattleScene extends Scene {
     if (this.eventIdx >= this.events.length && !this.resultShown) {
       this.battleDone = true;
       this.stopPlayback();
-      setTimeout(() => this.showResult(), 300);
+      // 战斗结束1s结算停顿
+      this.settlementPaused = true;
+      this.settlementRemain = 1.0;
+      const checkDone = () => {
+        if (this.settlementRemain > 0) {
+          this.settlementRemain -= 16 / 1000;
+          requestAnimationFrame(checkDone);
+        } else {
+          this.settlementPaused = false;
+          this.showResult();
+        }
+      };
+      requestAnimationFrame(checkDone);
     }
   };
 
@@ -295,9 +340,18 @@ export class BattleScene extends Scene {
         break;
       }
       case 'damage': {
-        sound.play('damage');
+        // 攻击命中：随机3种变体
+        sound.playRandomHit();
         const fc = this.floatCenter(ev.targetSide);
-        this.spawnFloat(fc.x, fc.y, `-${ev.value}`, '#ff4444');
+        // 伤害爆发慢放：大额伤害触发200ms慢放
+        if (ev.value >= 10 || ev.crit) {
+          this.applySlowMo(0.2);
+        }
+        this.spawnFloat(fc.x, fc.y, `-${ev.value}`, '#ff4444', ev.crit ? 18 : 14);
+        // 对玩家造成伤害时播放受伤音
+        if (ev.targetSide === 'player') {
+          sound.playRandomHurt();
+        }
         break;
       }
       case 'heal': {
@@ -337,7 +391,9 @@ export class BattleScene extends Scene {
           hasteRemain: 0, slowRemain: 0, freezeRemain: 0, destroyed: true,
         });
         const fc = this.floatCenter(ev.targetSide);
-        this.spawnFloat(fc.x, fc.y, '💥摧毁', '#ff2222');
+        this.spawnFloat(fc.x, fc.y, '💥摧毁', '#ff2222', 18);
+        // 击杀特写：300ms慢放
+        this.applySlowMo(0.3);
         break;
       }
       case 'overtime': {
@@ -361,9 +417,18 @@ export class BattleScene extends Scene {
         this.spawnFloat(fc.x, fc.y + 20, label[ev.type] ?? ev.type, color[ev.type] ?? '#ffffff');
         break;
       }
-      case 'battle_end':
+      case 'battle_end': {
+        // 播放胜利/失败音效
+        sound.play(ev.winner === 'player' ? 'win' : 'lose');
         break;
+      }
     }
+  }
+
+  /** 施加慢放效果：将回放速度降至0.2倍持续 duration 秒 */
+  private applySlowMo(duration: number) {
+    this.tempoMultiplier = 0.2;
+    this.slowMoEndTime = this.elapsed + duration * this.tempoMultiplier;
   }
 
   private syncSnapshot() {
@@ -387,19 +452,29 @@ export class BattleScene extends Scene {
     }
   }
 
-  private spawnFloat(x: number, y: number, text: string, color: string) {
+  private spawnFloat(x: number, y: number, text: string, color: string, fontSize = 14) {
     const t = new Text({
       text,
-      style: { fill: color, fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: color, fontSize, fontFamily: 'Arial', fontWeight: 'bold' },
     });
     t.anchor.set(0.5);
     t.x = x + (Math.random() - 0.5) * 30;
     t.y = y;
+    t.scale.set(0.3); // 从小放大
     this.floatLayer.addChild(t);
 
     let life = 0;
     const anim = () => {
       life += 16;
+      // 前100ms放大弹入
+      if (life < 100) {
+        const progress = life / 100;
+        t.scale.set(0.3 + 0.7 * progress * progress); // ease-in 弹入
+      } else if (life < 200) {
+        t.scale.set(1.0 + 0.1 * Math.sin((life - 100) / 100 * Math.PI)); // 轻微弹跳
+      } else {
+        t.scale.set(1.0);
+      }
       t.y -= 0.8;
       t.alpha = Math.max(0, 1 - life / 800);
       if (life >= 800) {
@@ -459,6 +534,9 @@ export class BattleScene extends Scene {
   private showResult() {
     this.resultShown = true;
     const result = this.battleResult;
+
+    // 播放胜利/失败音效（如 battle_end 事件未触发则在此补播）
+    sound.play(result.won ? 'win' : 'lose');
 
     const overlay = new Graphics();
     overlay.rect(0, 0, W, H);
