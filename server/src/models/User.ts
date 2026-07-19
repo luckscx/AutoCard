@@ -9,6 +9,8 @@ export interface OAuthProviderEntry {
 
 export interface IUser extends Document {
   openId?: string;
+  username?: string;
+  passwordHash?: string;
   nickname: string;
   avatarUrl?: string;
   oauthProviders: OAuthProviderEntry[];
@@ -23,6 +25,8 @@ const OAuthProviderSchema = new Schema<OAuthProviderEntry>({
 
 const UserSchema = new Schema<IUser>({
   openId: { type: String, sparse: true, unique: true },
+  username: { type: String, sparse: true, unique: true, minlength: 3, maxlength: 24 },
+  passwordHash: { type: String },
   nickname: { type: String, required: true },
   avatarUrl: { type: String },
   oauthProviders: [OAuthProviderSchema],

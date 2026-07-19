@@ -1,9 +1,10 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js'
-import { api, setUserId, getGitHubLoginUrl } from '../api/client.js';
+import { api, authApi, setUserId, getGitHubLoginUrl } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import { W, H, SIDE_PAD } from '../ui/layout.js';
+import { showAuthOverlay } from '../ui/AuthOverlay.js';
 import type { HeroConfig } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
 
@@ -37,6 +38,15 @@ export class LobbyScene extends Scene {
 
     // 处理 OAuth 回调（URL 中的 auth 参数）
     this.handleOAuthCallback();
+
+    // ── 认证检查：未登录则弹出登录/注册浮层 ──
+    if (!authApi.isLoggedIn()) {
+      showAuthOverlay(() => {
+        // 登录/注册成功或游客跳过后，重新进入 Lobby
+        this.onEnter();
+      });
+      return;
+    }
 
     const title = new Text({
       text: '自走牌 AutoCard',
@@ -86,6 +96,22 @@ export class LobbyScene extends Scene {
           }
         });
         this.addChild(nick);
+
+        // 登出按钮（仅已登录用户显示）
+        const logout = new Text({
+          text: '[退出]',
+          style: { fill: '#ff6b6b', fontSize: 11, fontFamily: 'Arial' },
+        });
+        logout.anchor.set(0.5, 0);
+        logout.x = W / 2;
+        logout.y = 102;
+        logout.eventMode = 'static';
+        logout.cursor = 'pointer';
+        logout.on('pointertap', () => {
+          authApi.logout();
+          this.onEnter();
+        });
+        this.addChild(logout);
 
         // 显示 GitHub 登录按钮（未绑定 GitHub 时才显示）
         const hasGithub = me.oauthProviders?.some(p => p.provider === 'github');
@@ -159,8 +185,13 @@ export class LobbyScene extends Scene {
     if (authType === 'github') {
       const uid = params.get('uid');
       const nickname = params.get('nickname');
+      const token = params.get('token');
       if (uid) {
         setUserId(uid);
+        if (token) {
+          // GitHub OAuth 成功后保存 JWT
+          authApi.saveLogin({ token, user: { userId: uid, nickname: nickname || uid } });
+        }
         console.log(`GitHub 登录成功: ${nickname || uid}`);
       }
     } else if (authType === 'error') {
@@ -173,6 +204,7 @@ export class LobbyScene extends Scene {
     cleanUrl.searchParams.delete('auth');
     cleanUrl.searchParams.delete('uid');
     cleanUrl.searchParams.delete('nickname');
+    cleanUrl.searchParams.delete('token');
     cleanUrl.searchParams.delete('message');
     window.history.replaceState({}, '', cleanUrl.toString());
   }
@@ -181,9 +213,8 @@ export class LobbyScene extends Scene {
   private addGitHubLoginButton() {
     const loginBtn = new Button('GitHub 登录', 120, 36, 0x24292e);
     loginBtn.x = W / 2 - 60;
-    loginBtn.y = 105;
+    loginBtn.y = 120;
     loginBtn.on('pointertap', () => {
-      // 跳转到后端 GitHub OAuth 入口
       window.location.href = getGitHubLoginUrl();
     });
     this.addChild(loginBtn);

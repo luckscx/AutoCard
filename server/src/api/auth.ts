@@ -1,7 +1,39 @@
 import { Router } from 'express';
 import { UserModel } from '../models/User.js';
+import { authService } from '../middleware/auth.js';
 
 const router = Router();
+
+function wrap(fn: (req: any, res: any) => Promise<void>) {
+  return async (req: any, res: any) => {
+    try {
+      await fn(req, res);
+    } catch (e: any) {
+      const status = e.message.includes('已存在') ? 409 : e.message.includes('错误') ? 401 : 400;
+      res.status(status).json({ error: e.message });
+    }
+  };
+}
+
+/** POST /api/auth/register — 注册 */
+router.post('/register', wrap(async (req, res) => {
+  const { username, password, nickname } = req.body;
+  if (!username || !password) throw new Error('用户名和密码不能为空');
+  if (username.length < 3 || username.length > 24) throw new Error('用户名须3-24个字符');
+  if (password.length < 6) throw new Error('密码至少6个字符');
+
+  const result = await authService.register(username, password, nickname);
+  res.status(201).json(result);
+}));
+
+/** POST /api/auth/login — 登录 */
+router.post('/login', wrap(async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) throw new Error('用户名和密码不能为空');
+
+  const result = await authService.login(username, password);
+  res.json(result);
+}));
 
 /**
  * GitHub OAuth 登录入口
@@ -15,7 +47,6 @@ router.get('/github', (_req, res) => {
   }
   const redirectUri = `${process.env.GITHUB_CALLBACK_URL || `${process.env.SERVER_URL || 'http://localhost:3000'}/api/auth/github/callback`}`;
   const state = crypto.randomUUID();
-  // 将 state 暂存到 cookie 用于回调校验
   res.cookie('oauth_state', state, { httpOnly: true, maxAge: 600_000, sameSite: 'lax' });
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=user:email`;
   res.redirect(githubAuthUrl);
@@ -23,14 +54,13 @@ router.get('/github', (_req, res) => {
 
 /**
  * GitHub OAuth 回调
- * 用 code 换取 access_token，再获取用户信息
+ * 用 code 换取 access_token，再获取用户信息，签发 JWT
  */
 router.get('/github/callback', async (req, res) => {
   try {
     const { code, state } = req.query as { code?: string; state?: string };
     const cookieState = req.cookies?.oauth_state;
 
-    // 校验 state 防止 CSRF
     if (!code || !state || state !== cookieState) {
       res.status(400).json({ error: '无效的 OAuth 回调参数' });
       return;
@@ -41,20 +71,11 @@ router.get('/github/callback', async (req, res) => {
     const clientSecret = process.env.GITHUB_CLIENT_SECRET!;
     const redirectUri = `${process.env.GITHUB_CALLBACK_URL || `${process.env.SERVER_URL || 'http://localhost:3000'}/api/auth/github/callback`}`;
 
-    // 第一步：用 code 换 access_token
+    // 用 code 换 access_token
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri: redirectUri,
-        state,
-      }),
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri, state }),
     });
     const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
     if (!tokenData.access_token) {
@@ -64,19 +85,12 @@ router.get('/github/callback', async (req, res) => {
     }
     const accessToken = tokenData.access_token;
 
-    // 第二步：用 access_token 获取 GitHub 用户信息
+    // 获取 GitHub 用户信息
     const userRes = await fetch('https://api.github.com/user', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github.v3+json' },
     });
     const ghUser = await userRes.json() as {
-      id: number;
-      login: string;
-      name?: string;
-      avatar_url?: string;
-      email?: string;
+      id: number; login: string; name?: string; avatar_url?: string; email?: string;
     };
 
     if (!ghUser.id) {
@@ -85,12 +99,9 @@ router.get('/github/callback', async (req, res) => {
     }
 
     const githubId = String(ghUser.id);
-
-    // 查找是否已有绑定此 GitHub 账号的用户
     let user = await UserModel.findOne({ 'oauthProviders.provider': 'github', 'oauthProviders.providerId': githubId });
 
     if (!user) {
-      // 首次 GitHub 登录，自动创建新用户
       const openId = `gh_${githubId}`;
       user = await UserModel.create({
         openId,
@@ -100,20 +111,16 @@ router.get('/github/callback', async (req, res) => {
       });
       console.log(`新用户通过 GitHub OAuth 注册: ${user.nickname} (${user._id})`);
     } else {
-      // 已有用户，更新 access_token 和头像
-      const provider = user.oauthProviders.find(p => p.provider === 'github');
-      if (provider) {
-        provider.accessToken = accessToken;
-      }
-      if (ghUser.avatar_url) {
-        user.avatarUrl = ghUser.avatar_url;
-      }
+      const provider = user.oauthProviders?.find(p => p.provider === 'github');
+      if (provider) provider.accessToken = accessToken;
+      if (ghUser.avatar_url) user.avatarUrl = ghUser.avatar_url;
       await user.save();
     }
 
-    // 重定向到前端，附带 userId 作为查询参数
+    // 签发 JWT 并重定向到前端
+    const jwtToken = authService.signTokenForUser(user);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const redirectUrl = `${clientUrl}/?auth=github&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
+    const redirectUrl = `${clientUrl}/?auth=github&token=${jwtToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
     res.redirect(redirectUrl);
   } catch (e: any) {
     console.error('GitHub OAuth callback error:', e.message);

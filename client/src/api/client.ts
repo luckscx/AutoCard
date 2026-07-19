@@ -10,13 +10,41 @@ import type { HeroConfig, ItemConfig, MonsterConfig, EventConfig } from '@autoca
 
 const BASE = '/api';
 
-let userId = localStorage.getItem('autocard_uid') || crypto.randomUUID();
-localStorage.setItem('autocard_uid', userId);
+// --- Token 管理 ---
+const LS_TOKEN = 'autocard_token';
+const LS_UID = 'autocard_uid';
+
+function getToken(): string | null {
+  return localStorage.getItem(LS_TOKEN);
+}
+
+function setToken(token: string) {
+  localStorage.setItem(LS_TOKEN, token);
+}
+
+function clearToken() {
+  localStorage.removeItem(LS_TOKEN);
+}
+
+// --- 降级兼容：无 JWT 时使用 x-user-id ---
+let legacyUserId = localStorage.getItem(LS_UID) || crypto.randomUUID();
+localStorage.setItem(LS_UID, legacyUserId);
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    headers['x-user-id'] = legacyUserId;
+  }
+  return headers;
+}
 
 /** 设置当前用户 ID（OAuth 回调后使用） */
 export function setUserId(newUid: string) {
-  userId = newUid;
-  localStorage.setItem('autocard_uid', userId);
+  legacyUserId = newUid;
+  localStorage.setItem(LS_UID, legacyUserId);
 }
 
 /** 获取 GitHub OAuth 登录地址 */
@@ -29,12 +57,23 @@ async function request<T>(method: string, path: string, body?: any, retries = 3)
     try {
       const res = await fetch(`${BASE}${path}`, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId,
-        },
+        headers: authHeaders(),
         body: body ? JSON.stringify(body) : undefined,
       });
+      if (res.status === 401 && getToken()) {
+        // token 过期，清除后降级
+        clearToken();
+        const retry = await fetch(`${BASE}${path}`, {
+          method,
+          headers: authHeaders(),
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (!retry.ok) {
+          const err = await retry.json().catch(() => ({ error: retry.statusText }));
+          throw new Error(err.error || retry.statusText);
+        }
+        return retry.json();
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(err.error || res.statusText);
@@ -51,6 +90,32 @@ async function request<T>(method: string, path: string, body?: any, retries = 3)
   throw new Error('Request failed');
 }
 
+// --- Auth API ---
+export interface AuthResponse {
+  token: string;
+  user: { userId: string; username?: string; nickname: string };
+}
+
+export const authApi = {
+  register: (username: string, password: string, nickname?: string) =>
+    request<AuthResponse>('POST', '/auth/register', { username, password, nickname }),
+
+  login: (username: string, password: string) =>
+    request<AuthResponse>('POST', '/auth/login', { username, password }),
+
+  logout: () => {
+    clearToken();
+  },
+
+  isLoggedIn: () => !!getToken(),
+
+  /** 登录/注册成功后保存 token */
+  saveLogin: (res: AuthResponse) => {
+    setToken(res.token);
+  },
+};
+
+// --- Game API ---
 export const api = {
   startRun: (heroId: string) => request<StartRunResponse>('POST', '/run/start', { heroId }),
   restartRun: (heroId: string) => request<RestartRunResponse>('POST', '/run/restart', { heroId }),

@@ -6,8 +6,12 @@ const router = Router();
 const runService = new RunService();
 
 async function getUserId(req: any): Promise<string> {
+  // 1. JWT 认证用户（优先）
+  if (req.userId) return req.userId;
+
+  // 2. 降级：旧版 x-user-id
   const openId = req.headers['x-user-id'] as string;
-  if (!openId) throw new Error('Missing x-user-id header');
+  if (!openId) throw new Error('Authentication required');
 
   let user = await UserModel.findOne({ openId });
   if (!user) {

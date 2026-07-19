@@ -4,8 +4,16 @@ import { UserModel } from '../models/User.js';
 const router = Router();
 
 async function resolveUser(req: any) {
+  // 1. JWT 认证用户（优先）
+  if (req.userId) {
+    const user = await UserModel.findById(req.userId);
+    if (!user) throw new Error('User not found');
+    return { user, openId: user.openId || user.username || req.userId };
+  }
+
+  // 2. 降级：旧版 x-user-id
   const openId = req.headers['x-user-id'] as string;
-  if (!openId) throw new Error('Missing x-user-id header');
+  if (!openId) throw new Error('Authentication required');
   let user = await UserModel.findOne({ openId });
   if (!user) {
     user = await UserModel.create({ openId, nickname: `Player_${openId.slice(0, 6)}` });
@@ -28,6 +36,7 @@ router.get('/me', wrap(async (req, res) => {
   res.json({
     userId: user._id!.toString(),
     nickname: user.nickname,
+    username: user.username,
     openId,
     avatarUrl: user.avatarUrl,
     oauthProviders: user.oauthProviders?.map(p => ({ provider: p.provider, providerId: p.providerId })),
@@ -43,6 +52,7 @@ router.patch('/nickname', wrap(async (req, res) => {
   res.json({
     userId: user._id!.toString(),
     nickname: user.nickname,
+    username: user.username,
     openId,
   });
 }));
