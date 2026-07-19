@@ -116,7 +116,7 @@ export class RunService {
     }
 
     if (choice === 'shop') {
-      const shopItems = this.generateShopItems(run.level, [...run.board, ...run.stash]);
+      const shopItems = this.generateShopItems(run.level, [...run.board, ...run.stash], run.heroId);
       run.shopItems = shopItems;
       run.shopRefreshed = false;
       await run.save();
@@ -139,7 +139,27 @@ export class RunService {
       };
     }
 
-    const allItems = Array.from(ALL_ITEMS_MAP.values()).filter(i => i.baseTier === 'bronze' && i.image);
+    const allItems = Array.from(ALL_ITEMS_MAP.values())
+      .filter(i => i.baseTier === 'bronze' && i.image)
+      .filter(i => !i.sourceHero || i.sourceHero === run.heroId);
+    if (allItems.length === 0) {
+      // fallback: 不过滤英雄
+      const fallback = Array.from(ALL_ITEMS_MAP.values()).filter(i => i.baseTier === 'bronze');
+      const giftCfg = fallback[Math.floor(Math.random() * fallback.length)];
+      const freeSlot = this.findFreeSlot(run.stash, giftCfg.size);
+      if (freeSlot < 0) throw new Error('储物箱已满，无法领取礼物');
+      run.stash.push({
+        itemId: giftCfg.itemId,
+        tier: giftCfg.baseTier,
+        size: giftCfg.size,
+        slotIndex: freeSlot,
+      });
+      run.markModified('stash');
+      this.gainXp(run, 1);
+      this.advanceHour(run);
+      await run.save();
+      return { run: toRunState(run), gift: { itemId: giftCfg.itemId } };
+    }
     const giftCfg = allItems[Math.floor(Math.random() * allItems.length)];
     const freeSlot = this.findFreeSlot(run.stash, giftCfg.size);
     if (freeSlot < 0) throw new Error('储物箱已满，无法领取礼物');
@@ -379,7 +399,7 @@ export class RunService {
 
     run.gold -= cost;
     run.shopRefreshed = true;
-    const shopItems = this.generateShopItems(run.level, [...run.board, ...run.stash]);
+    const shopItems = this.generateShopItems(run.level, [...run.board, ...run.stash], run.heroId);
     run.shopItems = shopItems;
     await run.save();
 
@@ -424,7 +444,7 @@ export class RunService {
         case 'item': {
           // 简化：放入储物箱第一个空位
           const id = typeof eff.value === 'string' && eff.value.startsWith('random_')
-            ? this.randomItemByTier(eff.value.replace('random_', '') as any)
+            ? this.randomItemByTier(eff.value.replace('random_', '') as any, run.heroId)
             : eff.value as string;
           const cfg = ALL_ITEMS_MAP.get(id);
           if (cfg) {
@@ -679,18 +699,24 @@ export class RunService {
     return 0;
   }
 
-  private generateShopItems(level: number, ownedItems?: SlotItem[]): string[] {
-    // 从大巴扎物品池中选牌（有图片的优先，保证UI好看）
-    const allBazaar = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => !i.itemId.startsWith('__'));
-    // 优先选有图片的物品，但如果池子不够则 fallback 到全部
-    const withImage = allBazaar.filter(i => i.image);
-    const pool = (withImage.length > 30 ? withImage : allBazaar).filter(i => {
+  private generateShopItems(level: number, ownedItems?: SlotItem[], heroId?: string): string[] {
+    // 从所有物品池（v1设计 + 大巴扎导入）中选牌
+    // 优先选有图片的物品，保证UI好看
+    const allItems = Array.from(ALL_ITEMS_MAP.values()).filter(i => !i.itemId.startsWith('__'));
+
+    // 英雄专属过滤：通用物品 + 当前英雄专属物品
+    const heroFiltered = heroId
+      ? allItems.filter(i => !i.sourceHero || i.sourceHero === heroId)
+      : allItems;
+
+    const withImage = heroFiltered.filter(i => i.image);
+    const pool = (withImage.length > 20 ? withImage : heroFiltered).filter(i => {
       if (level < 3) return i.baseTier === 'bronze';
       if (level < 5) return i.baseTier === 'bronze' || i.baseTier === 'silver';
       if (level < 8) return i.baseTier !== 'legendary';
       return true;
     });
-    const base = pool.length > 0 ? pool : allBazaar;
+    const base = pool.length > 0 ? pool : heroFiltered;
 
     // 升级机制：如果玩家已有卡牌，有概率刷出相同卡牌供升级
     // 收集玩家已有卡牌的 itemId（可合并的，即非 legendary）
@@ -724,13 +750,18 @@ export class RunService {
     return [pickOne(), pickOne(), pickOne()];
   }
 
-  private randomItemByTier(tier: string): string {
-    const candidates = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => i.baseTier === tier && i.image);
-    const fallback = Array.from(BAZAAR_ITEMS_MAP.values()).filter(i => i.baseTier === tier);
+  private randomItemByTier(tier: string, heroId?: string): string {
+    const allItems = Array.from(ALL_ITEMS_MAP.values());
+    // 英雄专属过滤
+    const heroFiltered = heroId
+      ? allItems.filter(i => !i.sourceHero || i.sourceHero === heroId)
+      : allItems;
+    const candidates = heroFiltered.filter(i => i.baseTier === tier && i.image);
+    const fallback = heroFiltered.filter(i => i.baseTier === tier);
     const pool = candidates.length > 0 ? candidates : fallback;
     return pool.length > 0
       ? pool[Math.floor(Math.random() * pool.length)].itemId
-      : 'health_potion';
+      : 'u01_rusty_dagger';
   }
 
   private validatePlacement(container: SlotItem[], size: number, slotIndex: number, ignoreIndex?: number) {
