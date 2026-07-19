@@ -7,6 +7,7 @@ import { runRouter } from './api/run.js';
 import { configRouter } from './api/config.js';
 import { userRouter } from './api/user.js';
 import { authRouter } from './api/auth.js';
+import { profileRouter } from './api/profile.js';
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/autocard';
@@ -20,6 +21,7 @@ app.use('/api/run', runRouter);
 app.use('/api/config', configRouter);
 app.use('/api/user', userRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/profile', profileRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

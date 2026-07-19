@@ -8,6 +8,7 @@ import {
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
 import { PvpMirrorModel } from '../models/PvpMirror.js';
+import { PvpRecordModel } from '../models/PvpRecord.js';
 import { HEROES, ITEMS_MAP, BAZAAR_ITEMS_MAP, EVENTS, getMonstersByDifficulty } from '../game/config/index.js';
 
 // 合并基础物品与大巴扎物品，大巴扎优先（bazaar 数据更完整）
@@ -330,6 +331,20 @@ export class RunService {
 
     this.advanceHour(run);
     await run.save();
+
+    // [4.3] 落库单场 PvP 对战明细，供玩家档案与战绩统计使用
+    await PvpRecordModel.create({
+      runId: run._id,
+      userId: run.userId,
+      day: run.day,
+      level: run.level,
+      won,
+      heroId: run.heroId,
+      opponentHeroId: opponent.heroId,
+      opponentLevel: opponent.level,
+      hpLeft: result.attackerHpLeft,
+      maxHp: run.maxHp,
+    });
 
     return {
       run: toRunState(run),

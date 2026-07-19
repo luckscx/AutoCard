@@ -149,3 +149,56 @@ export interface LevelUpChoiceRequest {
 export interface LevelUpChoiceResponse {
   run: RunState;
 }
+
+// --- 玩家档案与战绩统计 [4.3] ---
+
+export interface RunHistoryEntry {
+  runId: string;
+  heroId: string;
+  status: string;
+  day: number;
+  pvpWins: number;
+  level: number;
+  finishedAt: string;
+}
+
+export interface HeroStatEntry {
+  heroId: string;
+  runs: number;
+  pvpWins: number;
+  pvpLosses: number;
+}
+
+export interface RecentPvpEntry {
+  day: number;
+  won: boolean;
+  heroId: string;
+  opponentHeroId: string;
+  opponentLevel: number;
+  hpLeft: number;
+  maxHp: number;
+  createdAt: string;
+}
+
+export interface PlayerProfile {
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  totalRuns: number;
+  wins: number;
+  losses: number;
+  totalPvpBattles: number;
+  pvpWins: number;
+  pvpLosses: number;
+  pvpWinRate: number;
+  farthestDay: number;
+  bestLevel: number;
+  favoriteHero: string | null;
+  heroStats: HeroStatEntry[];
+  recentRuns: RunHistoryEntry[];
+  recentPvp: RecentPvpEntry[];
+}
+
+export interface GetProfileResponse {
+  profile: PlayerProfile;
+}
