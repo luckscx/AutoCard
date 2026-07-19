@@ -11,14 +11,18 @@ vi.mock('../../models/User.js', () => {
   class UserModel {
     static async findOne(q: any) {
       const key = Object.keys(q)[0];
-      return store.users.find(u => u[key] === q[key]) || null;
+      const found = store.users.find(u => u[key] === q[key]);
+      if (!found) return null;
+      // 返回 store 中同一引用，附加 save 方法
+      found.save = async function () { return this; };
+      return found;
     }
     static async create(data: any) {
-      const u = { _id: `uid_${++store.counter}`, ...data };
+      const u: any = { _id: `uid_${++store.counter}`, ...data };
+      u.save = async function () { return this; };
       store.users.push(u);
       return u;
     }
-    async save() { return this; }
   }
   return { UserModel: UserModel as any, IUser: {} as any };
 });
@@ -41,10 +45,15 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    it('should hash password with bcrypt', async () => {
+    it('should hash password with bcrypt and return access+refresh tokens', async () => {
       const res = await svc.register('alice', 'password123', 'Alice');
-      expect(res.token).toBeTypeOf('string');
+      expect(res.accessToken).toBeTypeOf('string');
+      expect(res.refreshToken).toBeTypeOf('string');
+      expect(res.expiresIn).toBe(15 * 60);
       expect(res.user).not.toHaveProperty('passwordHash');
+      // refreshToken 不应明文存储（应哈希）
+      const stored = store.users.find(u => u.username === 'alice');
+      expect(stored.refreshToken).not.toBe(res.refreshToken);
     });
 
     it('should reject duplicate username', async () => {
@@ -66,10 +75,11 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return token for valid credentials', async () => {
+    it('should return tokens for valid credentials', async () => {
       await svc.register('alice', 'password123');
       const res = await svc.login('alice', 'password123');
-      expect(res.token).toBeTypeOf('string');
+      expect(res.accessToken).toBeTypeOf('string');
+      expect(res.refreshToken).toBeTypeOf('string');
     });
 
     it('should reject wrong password', async () => {
@@ -82,6 +92,30 @@ describe('AuthService', () => {
       await svc.register('alice', 'password123');
       const e2 = await svc.login('alice', 'wrong').catch(e => e.message);
       expect(e1).toBe(e2);
+    });
+  });
+
+  describe('refresh token', () => {
+    it('should issue new access token via refresh', async () => {
+      const reg = await svc.register('alice', 'password123');
+      const refreshed = await svc.refresh(reg.refreshToken);
+      expect(refreshed).not.toBeNull();
+      expect(refreshed!.accessToken).toBeTypeOf('string');
+      expect(refreshed!.expiresIn).toBe(15 * 60);
+    });
+
+    it('should reject invalid refresh token', async () => {
+      const result = await svc.refresh('fake_refresh_token');
+      expect(result).toBeNull();
+    });
+
+    it('should reject reused refresh token after logout (token revoked)', async () => {
+      const reg = await svc.register('alice', 'password123');
+      // 模拟 logout：清除 refreshToken
+      const user = store.users.find(u => u.username === 'alice');
+      user.refreshToken = undefined;
+      const result = await svc.refresh(reg.refreshToken);
+      expect(result).toBeNull();
     });
   });
 

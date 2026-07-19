@@ -35,6 +35,34 @@ router.post('/login', wrap(async (req, res) => {
   res.json(result);
 }));
 
+/** POST /api/auth/refresh — 用 refreshToken 换取新的 accessToken */
+router.post('/refresh', wrap(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) throw new Error('缺少 refreshToken');
+  const result = await authService.refresh(refreshToken);
+  if (!result) {
+    res.status(401).json({ error: 'refreshToken 无效或已过期' });
+    return;
+  }
+  res.json(result);
+}));
+
+/** POST /api/auth/logout — 吊销 refreshToken */
+router.post('/logout', wrap(async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    const payload = authService.verifyToken(authHeader.slice(7));
+    if (payload?.userId) {
+      const user = await UserModel.findById(payload.userId);
+      if (user) {
+        user.refreshToken = undefined;
+        await user.save();
+      }
+    }
+  }
+  res.json({ success: true });
+}));
+
 /**
  * GitHub OAuth 登录入口
  * 重定向用户到 GitHub 授权页面
@@ -117,10 +145,10 @@ router.get('/github/callback', async (req, res) => {
       await user.save();
     }
 
-    // 签发 JWT 并重定向到前端
-    const jwtToken = authService.signTokenForUser(user);
+    // 签发 token 对（access + refresh）并重定向到前端
+    const tokens = await authService.issueTokens(user);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const redirectUrl = `${clientUrl}/?auth=github&token=${jwtToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
+    const redirectUrl = `${clientUrl}/?auth=github&token=${tokens.accessToken}&refreshToken=${tokens.refreshToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
     res.redirect(redirectUrl);
   } catch (e: any) {
     console.error('GitHub OAuth callback error:', e.message);
@@ -207,10 +235,10 @@ router.get('/wechat/callback', async (req, res) => {
       await user.save();
     }
 
-    // 签发 JWT 并重定向到前端
-    const jwtToken = authService.signTokenForUser(user);
+    // 签发 token 对（access + refresh）并重定向到前端
+    const tokens = await authService.issueTokens(user);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const redirectUrl = `${clientUrl}/?auth=wechat&token=${jwtToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
+    const redirectUrl = `${clientUrl}/?auth=wechat&token=${tokens.accessToken}&refreshToken=${tokens.refreshToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
     res.redirect(redirectUrl);
   } catch (e: any) {
     console.error('微信 OAuth callback error:', e.message);

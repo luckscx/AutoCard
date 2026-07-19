@@ -1,12 +1,16 @@
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { UserModel, type IUser } from '../models/User.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'autocard_dev_secret_change_in_prod';
+const ACCESS_TOKEN_TTL = '15m';
+const REFRESH_TOKEN_TTL_DAYS = 7;
 
 export interface JwtPayload {
   userId: string;
   username?: string;
+  type?: 'access' | 'refresh';
 }
 
 export class AuthService {
@@ -29,11 +33,7 @@ export class AuthService {
       nickname: nickname || username,
     });
 
-    const token = this.signToken(user);
-    return {
-      token,
-      user: { userId: user._id.toString(), username: user.username, nickname: user.nickname },
-    };
+    return this.issueTokens(user);
   }
 
   /** 登录 */
@@ -44,17 +44,39 @@ export class AuthService {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new Error('用户名或密码错误');
 
-    const token = this.signToken(user);
+    return this.issueTokens(user);
+  }
+
+  /** 为已存在用户签发 access + refresh token（供 OAuth 回调复用） */
+  async issueTokens(user: IUser) {
+    const accessToken = this.signAccessToken(user);
+    const refreshToken = this.signRefreshToken();
+    // 存储 refreshToken 哈希到 DB（防明文泄露）
+    user.refreshToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    await user.save();
     return {
-      token,
-      user: { userId: user._id.toString(), username: user.username, nickname: user.nickname },
+      accessToken,
+      refreshToken,
+      expiresIn: 15 * 60, // 秒
+      user: { userId: user._id!.toString(), username: user.username, nickname: user.nickname },
     };
   }
 
-  /** 验证 JWT token，返回 payload 或 null */
+  /** 用 refreshToken 换取新的 accessToken */
+  async refresh(refreshToken: string): Promise<{ accessToken: string; expiresIn: number } | null> {
+    const hash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const user = await UserModel.findOne({ refreshToken: hash });
+    if (!user) return null;
+    const accessToken = this.signAccessToken(user);
+    return { accessToken, expiresIn: 15 * 60 };
+  }
+
+  /** 验证 access token，返回 payload 或 null */
   verifyToken(token: string): JwtPayload | null {
     try {
-      return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
+      const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
+      if (payload.type && payload.type !== 'access') return null;
+      return payload;
     } catch {
       return null;
     }
@@ -62,14 +84,19 @@ export class AuthService {
 
   /** 为任意已存在的用户对象签发 JWT（供 OAuth 回调使用） */
   signTokenForUser(user: IUser): string {
-    return this.signToken(user);
+    return this.signAccessToken(user);
   }
 
-  private signToken(user: IUser): string {
+  private signAccessToken(user: IUser): string {
     const payload: JwtPayload = {
-      userId: user._id.toString(),
+      userId: user._id!.toString(),
       username: user.username,
+      type: 'access',
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+  }
+
+  private signRefreshToken(): string {
+    return crypto.randomBytes(32).toString('base64url');
   }
 }

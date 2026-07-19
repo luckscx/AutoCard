@@ -205,22 +205,28 @@ export interface GetProfileResponse {
 
 // --- 排行榜系统 [4.4] ---
 
+export type LeaderboardType = 'fastest_win' | 'win_rate' | 'win_streak';
+
 export interface LeaderboardEntry {
   rank: number;
   userId: string;
   nickname: string;
   avatarUrl?: string;
-  score: number;
-  wins: number;          // 通关次数
-  pvpWins: number;       // 总 PvP 胜场
-  pvpWinRate: number;    // 0~1
-  farthestDay: number;   // 历史最远天数
-  bestLevel: number;     // 历史最高等级
+  fastestWinDay: number | null;  // 最快通关天数（越小越好）
+  winRate: number;               // 0~1
+  winStreak: number;             // 连胜
+  totalBattles: number;          // 总对战场次
 }
 
-export type LeaderboardMetric = 'score' | 'wins' | 'pvpWins' | 'farthestDay' | 'bestLevel';
-
 export interface GetLeaderboardResponse {
-  metric: LeaderboardMetric;
+  type: LeaderboardType;
+  season: string;                // 当前赛季 YYYY-MM
   entries: LeaderboardEntry[];
+}
+
+export interface GetMyRankResponse {
+  type: LeaderboardType;
+  season: string;
+  rank: number | null;
+  entry: LeaderboardEntry | null;
 }

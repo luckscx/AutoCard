@@ -4,7 +4,7 @@ import type {
   PlaceItemResponse, MergeItemResponse,
   BuyItemResponse, RefreshShopResponse, LeaveShopResponse, EventChoiceResponse,
   SellItemResponse, SwapItemsResponse,
-  UserMeResponse, LevelUpChoiceResponse, GetLeaderboardResponse,
+  UserMeResponse, LevelUpChoiceResponse, GetLeaderboardResponse, GetMyRankResponse,
 } from '@autocard/shared';
 import type { HeroConfig, ItemConfig, MonsterConfig, EventConfig } from '@autocard/shared';
 
@@ -12,18 +12,28 @@ const BASE = '/api';
 
 // --- Token 管理 ---
 const LS_TOKEN = 'autocard_token';
+const LS_REFRESH = 'autocard_refresh';
 const LS_UID = 'autocard_uid';
 
 function getToken(): string | null {
   return localStorage.getItem(LS_TOKEN);
 }
 
+function getRefreshToken(): string | null {
+  return localStorage.getItem(LS_REFRESH);
+}
+
 function setToken(token: string) {
   localStorage.setItem(LS_TOKEN, token);
 }
 
+function setRefreshToken(refresh: string) {
+  localStorage.setItem(LS_REFRESH, refresh);
+}
+
 function clearToken() {
   localStorage.removeItem(LS_TOKEN);
+  localStorage.removeItem(LS_REFRESH);
 }
 
 // --- 降级兼容：无 JWT 时使用 x-user-id ---
@@ -39,6 +49,25 @@ function authHeaders(): Record<string, string> {
     headers['x-user-id'] = legacyUserId;
   }
   return headers;
+}
+
+/** 用 refreshToken 换取新的 accessToken（静默刷新，不抛异常） */
+async function tryRefresh(): Promise<boolean> {
+  const refresh = getRefreshToken();
+  if (!refresh) return false;
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json() as { accessToken: string };
+    setToken(data.accessToken);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** 设置当前用户 ID（OAuth 回调后使用） */
@@ -66,7 +95,21 @@ async function request<T>(method: string, path: string, body?: any, retries = 3)
         body: body ? JSON.stringify(body) : undefined,
       });
       if (res.status === 401 && getToken()) {
-        // token 过期，清除后降级
+        // accessToken 过期，尝试用 refreshToken 静默刷新
+        const refreshed = await tryRefresh();
+        if (refreshed) {
+          const retry = await fetch(`${BASE}${path}`, {
+            method,
+            headers: authHeaders(),
+            body: body ? JSON.stringify(body) : undefined,
+          });
+          if (!retry.ok) {
+            const err = await retry.json().catch(() => ({ error: retry.statusText }));
+            throw new Error(err.error || retry.statusText);
+          }
+          return retry.json();
+        }
+        // 刷新失败，清除 token 降级为匿名
         clearToken();
         const retry = await fetch(`${BASE}${path}`, {
           method,
@@ -97,7 +140,9 @@ async function request<T>(method: string, path: string, body?: any, retries = 3)
 
 // --- Auth API ---
 export interface AuthResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn?: number;
   user: { userId: string; username?: string; nickname: string };
 }
 
@@ -108,7 +153,17 @@ export const authApi = {
   login: (username: string, password: string) =>
     request<AuthResponse>('POST', '/auth/login', { username, password }),
 
-  logout: () => {
+  refresh: (refreshToken: string) =>
+    request<{ accessToken: string; expiresIn: number }>('POST', '/auth/refresh', { refreshToken }),
+
+  logout: async () => {
+    const token = getToken();
+    if (token) {
+      await fetch(`${BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
     clearToken();
   },
 
@@ -116,7 +171,8 @@ export const authApi = {
 
   /** 登录/注册成功后保存 token */
   saveLogin: (res: AuthResponse) => {
-    setToken(res.token);
+    setToken(res.accessToken);
+    if (res.refreshToken) setRefreshToken(res.refreshToken);
   },
 };
 
@@ -174,6 +230,9 @@ export const api = {
     request<UserMeResponse>('PATCH', '/user/nickname', { nickname }),
 
   // Leaderboard [4.4]
-  getLeaderboard: (metric: string = 'score', limit: number = 50) =>
-    request<GetLeaderboardResponse>('GET', `/leaderboard?metric=${metric}&limit=${limit}`),
+  getLeaderboard: (type: string = 'fastest_win', limit: number = 50) =>
+    request<GetLeaderboardResponse>('GET', `/leaderboard?type=${type}&limit=${limit}`),
+
+  getMyRank: (type: string = 'fastest_win') =>
+    request<GetMyRankResponse>('GET', `/leaderboard/me?type=${type}`),
 };

@@ -258,11 +258,12 @@ export class LobbyScene extends Scene {
       const uid = params.get('uid');
       const nickname = params.get('nickname');
       const token = params.get('token');
+      const refreshToken = params.get('refreshToken');
       if (uid) {
         setUserId(uid);
         if (token) {
-          // GitHub OAuth 成功后保存 JWT
-          authApi.saveLogin({ token, user: { userId: uid, nickname: nickname || uid } });
+          // GitHub OAuth 成功后保存 JWT（access + refresh）
+          authApi.saveLogin({ accessToken: token, refreshToken: refreshToken || '', user: { userId: uid, nickname: nickname || uid } });
         }
         console.log(`GitHub 登录成功: ${nickname || uid}`);
       }
@@ -270,11 +271,12 @@ export class LobbyScene extends Scene {
       const uid = params.get('uid');
       const nickname = params.get('nickname');
       const token = params.get('token');
+      const refreshToken = params.get('refreshToken');
       if (uid) {
         setUserId(uid);
         if (token) {
-          // 微信 OAuth 成功后保存 JWT
-          authApi.saveLogin({ token, user: { userId: uid, nickname: nickname || uid } });
+          // 微信 OAuth 成功后保存 JWT（access + refresh）
+          authApi.saveLogin({ accessToken: token, refreshToken: refreshToken || '', user: { userId: uid, nickname: nickname || uid } });
         }
         console.log(`微信登录成功: ${nickname || uid}`);
       }

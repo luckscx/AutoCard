@@ -14,6 +14,7 @@ export interface IUser extends Document {
   nickname: string;
   avatarUrl?: string;
   oauthProviders: OAuthProviderEntry[];
+  refreshToken?: string;
   createdAt: Date;
 }
 
@@ -30,6 +31,7 @@ const UserSchema = new Schema<IUser>({
   nickname: { type: String, required: true },
   avatarUrl: { type: String },
   oauthProviders: [OAuthProviderSchema],
+  refreshToken: { type: String },
 }, { timestamps: true });
 
 // 为 OAuth 提供商建立复合唯一索引，防止同一 provider+providerId 重复绑定

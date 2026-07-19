@@ -3,21 +3,20 @@ import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js';
 import { api, authApi } from '../api/client.js';
 import { W, H, SIDE_PAD } from '../ui/layout.js';
-import type { LeaderboardMetric, LeaderboardEntry } from '@autocard/shared';
+import type { LeaderboardType, LeaderboardEntry } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
 
-const METRICS: { key: LeaderboardMetric; label: string }[] = [
-  { key: 'score', label: '综合' },
-  { key: 'wins', label: '通关' },
-  { key: 'pvpWins', label: 'PvP胜' },
-  { key: 'farthestDay', label: '天数' },
-  { key: 'bestLevel', label: '等级' },
+const TABS: { key: LeaderboardType; label: string }[] = [
+  { key: 'fastest_win', label: '最快通关' },
+  { key: 'win_rate', label: '胜率' },
+  { key: 'win_streak', label: '连胜' },
 ];
 
 export class LeaderboardScene extends Scene {
   private sm: SceneManager;
-  private currentMetric: LeaderboardMetric = 'score';
+  private currentType: LeaderboardType = 'fastest_win';
   private listContainer: Container | null = null;
+  private seasonLabel: Text | null = null;
 
   constructor(sm: SceneManager) {
     super();
@@ -43,21 +42,32 @@ export class LeaderboardScene extends Scene {
     back.on('pointertap', () => this.sm.goto('lobby'));
     this.addChild(back);
 
-    // 指标切换按钮
-    const btnW = 56;
-    const gap = 8;
-    const totalW = METRICS.length * btnW + (METRICS.length - 1) * gap;
+    // Tab 切换
+    const btnW = 86;
+    const gap = 10;
+    const totalW = TABS.length * btnW + (TABS.length - 1) * gap;
     const startX = (W - totalW) / 2;
-    METRICS.forEach((m, i) => {
-      const btn = new Button(m.label, btnW, 30, this.currentMetric === m.key ? 0xffd700 : 0x2a2a4a);
+    TABS.forEach((t, i) => {
+      const btn = new Button(t.label, btnW, 30, this.currentType === t.key ? 0xffd700 : 0x2a2a4a);
       btn.x = startX + i * (btnW + gap);
       btn.y = 70;
       btn.on('pointertap', () => {
-        this.currentMetric = m.key;
+        this.currentType = t.key;
         this.onEnter();
       });
       this.addChild(btn);
     });
+
+    // 赛季标签
+    const season = new Text({
+      text: '赛季加载中...',
+      style: { fill: '#88ffaa', fontSize: 12, fontFamily: 'Arial' },
+    });
+    season.anchor.set(1, 0);
+    season.x = W - SIDE_PAD;
+    season.y = 76;
+    this.addChild(season);
+    this.seasonLabel = season;
 
     // 加载中
     const loading = new Text({
@@ -70,15 +80,19 @@ export class LeaderboardScene extends Scene {
     this.addChild(loading);
 
     try {
-      const { entries } = await api.getLeaderboard(this.currentMetric, 50);
+      const [board, mine] = await Promise.all([
+        api.getLeaderboard(this.currentType, 50),
+        authApi.isLoggedIn() ? api.getMyRank(this.currentType).catch(() => null) : Promise.resolve(null),
+      ]);
       this.removeChild(loading);
-      this.renderList(entries);
+      if (this.seasonLabel) this.seasonLabel.text = `📅 赛季 ${board.season}`;
+      this.renderList(board.entries, mine?.rank ?? null);
     } catch (e: any) {
       loading.text = `加载失败: ${e.message}`;
     }
   }
 
-  private renderList(entries: LeaderboardEntry[]) {
+  private renderList(entries: LeaderboardEntry[], myRank: number | null) {
     if (this.listContainer) {
       this.removeChild(this.listContainer);
       this.listContainer.destroy({ children: true });
@@ -101,12 +115,13 @@ export class LeaderboardScene extends Scene {
       return;
     }
 
-    const rowH = 36;
+    const rowH = 38;
     const rowW = W - SIDE_PAD * 2;
+    const myUserId = this.getCurrentUserId();
 
     // 表头
     const header = new Text({
-      text: '#    玩家            分数    通关  PvP胜  胜率',
+      text: this.getHeaderText(),
       style: { fill: '#666688', fontSize: 11, fontFamily: 'monospace' },
     });
     header.x = 0;
@@ -116,26 +131,59 @@ export class LeaderboardScene extends Scene {
     entries.forEach((e, i) => {
       const y = 20 + i * rowH;
       const bg = new Graphics();
-      const isCurrentUser = authApi.isLoggedIn() && e.userId === this.getCurrentUserId();
+      const isMe = myUserId != null && e.userId === myUserId;
       bg.roundRect(0, y, rowW, rowH - 4, 6);
-      bg.fill({ color: isCurrentUser ? 0x1a3a2a : (i % 2 === 0 ? 0x141428 : 0x101020), alpha: 0.8 });
+      bg.fill({ color: isMe ? 0x1a3a2a : (i % 2 === 0 ? 0x141428 : 0x101020), alpha: 0.8 });
       if (i < 3) bg.stroke({ color: [0xffd700, 0xc0c0c0, 0xcd7f32][i], width: 1.5 });
+      if (isMe) bg.stroke({ color: 0x07c160, width: 2 });
       container.addChild(bg);
 
       const rankColor = i < 3 ? ['#ffd700', '#c0c0c0', '#cd7f32'][i] : '#e0e0ff';
-      const nameStr = e.nickname.length > 10 ? e.nickname.slice(0, 10) : e.nickname.padEnd(10);
+      const nameStr = e.nickname.length > 9 ? e.nickname.slice(0, 9) : e.nickname.padEnd(9);
       const rowText = new Text({
-        text: `${String(e.rank).padStart(2)}   ${nameStr}  ${String(e.score).padStart(5)}  ${String(e.wins).padStart(3)}  ${String(e.pvpWins).padStart(4)}  ${(e.pvpWinRate * 100).toFixed(0)}%`,
+        text: this.getRowText(e, nameStr),
         style: { fill: rankColor, fontSize: 12, fontFamily: 'monospace' },
       });
       rowText.x = 8;
-      rowText.y = y + 8;
+      rowText.y = y + 9;
       container.addChild(rowText);
     });
+
+    // 我的排名提示（在底部或列表外）
+    if (myRank != null) {
+      const myBadge = new Text({
+        text: `★ 我的排名: #${myRank}`,
+        style: { fill: '#07c160', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      });
+      myBadge.x = SIDE_PAD;
+      myBadge.y = 20 + entries.length * rowH + 8;
+      container.addChild(myBadge);
+    }
+  }
+
+  private getHeaderText(): string {
+    switch (this.currentType) {
+      case 'fastest_win': return '#    玩家          通关天数';
+      case 'win_rate': return '#    玩家          胜率    场次';
+      case 'win_streak': return '#    玩家          连胜';
+      default: return '#    玩家';
+    }
+  }
+
+  private getRowText(e: LeaderboardEntry, nameStr: string): string {
+    switch (this.currentType) {
+      case 'fastest_win':
+        return `${String(e.rank).padStart(2)}   ${nameStr}  ${e.fastestWinDay == null ? '—' : e.fastestWinDay + '天'}`;
+      case 'win_rate':
+        return `${String(e.rank).padStart(2)}   ${nameStr}  ${(e.winRate * 100).toFixed(1)}%  ${e.totalBattles}`;
+      case 'win_streak':
+        return `${String(e.rank).padStart(2)}   ${nameStr}  ${e.winStreak}连胜`;
+      default:
+        return `${String(e.rank).padStart(2)}   ${nameStr}`;
+    }
   }
 
   private getCurrentUserId(): string | null {
-    // 从 localStorage 读取当前 token 解析 userId（简易实现）
     const token = localStorage.getItem('autocard_token');
     if (!token) return null;
     try {
