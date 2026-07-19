@@ -158,35 +158,94 @@ export class LobbyScene extends Scene {
 
   private maybeShowTutorial() {
     if (localStorage.getItem('autocard_tip_seen')) return;
+
+    // 新手引导步骤
+    const steps = [
+      { title: '🎯 游戏目标', body: '每天 6 小时循环推进，累计 10 场 PvP 胜利即可通关；声望（生命）耗尽则失败。' },
+      { title: '⚙️ 端口系统', body: '棋盘（Board）是你部署卡牌的端口。卡牌放入端口后自动触发效果，棋子越多战力越强。' },
+      { title: '🛒 运营小时', body: '每日起始为「运营」：三选一（商店/事件/礼物）。商店刷新卡牌，事件触发抉择，礼物免费拿牌。' },
+      { title: '⚔️ PvE / PvP', body: '第 3 小时打 PvE 怪物练级，第 6 小时打 PvP 镜像战。胜利积累声望与经验，失败扣声望。' },
+      { title: '🔗 合并与出售', body: '同类卡牌可合并升级；不需要的卡牌可出售换金币。合理规划端口布局是取胜关键！' },
+    ];
+
+    let stepIdx = 0;
     const wrap = new Container();
-    const tipW = W - SIDE_PAD * 2;
-    const bg = new Graphics();
-    bg.roundRect(0, 0, tipW, 80, 8);
-    bg.fill({ color: 0x0a1520, alpha: 0.92 });
-    bg.stroke({ color: 0x4a90d9, width: 1 });
-    bg.x = SIDE_PAD;
-    bg.y = H - 110;
-    wrap.addChild(bg);
-
-    const tip = new Text({
-      text: '每天 6 小时：运营三选一 → PvE → 再运营 → PvP。声望耗尽失败；累计 10 场 PvP 胜通关。',
-      style: { fill: '#ccddee', fontSize: 11, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: tipW - 100 },
-    });
-    tip.x = SIDE_PAD + 10;
-    tip.y = H - 102;
-    wrap.addChild(tip);
-
-    const ok = new Button('知道了', 80, 30, 0x4a90d9);
-    ok.x = W - SIDE_PAD - 88;
-    ok.y = H - 100;
-    ok.on('pointertap', () => {
-      localStorage.setItem('autocard_tip_seen', '1');
-      this.removeChild(wrap);
-      wrap.destroy({ children: true });
-    });
-    wrap.addChild(ok);
-
     this.addChild(wrap);
+
+    const renderStep = () => {
+      wrap.removeChildren();
+      const tipW = W - SIDE_PAD * 2;
+      const bg = new Graphics();
+      const boxH = 130;
+      bg.roundRect(0, 0, tipW, boxH, 8);
+      bg.fill({ color: 0x0a1520, alpha: 0.95 });
+      bg.stroke({ color: 0x4a90d9, width: 1.5 });
+      bg.x = SIDE_PAD;
+      bg.y = H - boxH - 20;
+      wrap.addChild(bg);
+
+      const step = steps[stepIdx];
+      const titleText = new Text({
+        text: `${step.title} (${stepIdx + 1}/${steps.length})`,
+        style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      });
+      titleText.x = SIDE_PAD + 12;
+      titleText.y = H - boxH - 12;
+      wrap.addChild(titleText);
+
+      const bodyText = new Text({
+        text: step.body,
+        style: { fill: '#ccddee', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: tipW - 130 },
+      });
+      bodyText.x = SIDE_PAD + 12;
+      bodyText.y = H - boxH + 14;
+      wrap.addChild(bodyText);
+
+      // 按钮区
+      const isLast = stepIdx === steps.length - 1;
+      const nextBtn = new Button(isLast ? '开始游戏' : '下一步', 90, 32, isLast ? 0x07c160 : 0x4a90d9);
+      nextBtn.x = W - SIDE_PAD - 98;
+      nextBtn.y = H - 52;
+      nextBtn.on('pointertap', () => {
+        if (isLast) {
+          localStorage.setItem('autocard_tip_seen', '1');
+          this.removeChild(wrap);
+          wrap.destroy({ children: true });
+        } else {
+          stepIdx++;
+          renderStep();
+        }
+      });
+      wrap.addChild(nextBtn);
+
+      if (stepIdx > 0) {
+        const prevBtn = new Button('上一步', 80, 32, 0x2a2a4a);
+        prevBtn.x = W - SIDE_PAD - 196;
+        prevBtn.y = H - 52;
+        prevBtn.on('pointertap', () => {
+          stepIdx--;
+          renderStep();
+        });
+        wrap.addChild(prevBtn);
+      }
+
+      const skip = new Text({
+        text: '跳过引导',
+        style: { fill: '#888', fontSize: 11, fontFamily: 'Arial' },
+      });
+      skip.x = SIDE_PAD + 12;
+      skip.y = H - 48;
+      skip.eventMode = 'static';
+      skip.cursor = 'pointer';
+      skip.on('pointertap', () => {
+        localStorage.setItem('autocard_tip_seen', '1');
+        this.removeChild(wrap);
+        wrap.destroy({ children: true });
+      });
+      wrap.addChild(skip);
+    };
+
+    renderStep();
   }
 
   /** 处理 OAuth 回调参数 */
