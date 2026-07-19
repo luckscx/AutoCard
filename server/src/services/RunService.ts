@@ -2,7 +2,7 @@ import type { Types } from 'mongoose';
 import {
   INITIAL_PRESTIGE, XP_PER_LEVEL, PVP_WINS_TO_WIN,
   HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel, boardSlotsForLevel,
-  DAILY_BASE_INCOME, PRESTIGE_LOSS_PER_DEFEAT,
+  DAILY_BASE_INCOME, PRESTIGE_LOSS_PER_DEFEAT, PRESTIGE_LOSS_CAP,
   type RunState, type BattleResult, type SlotItem, type PendingLevelUpState,
   type Tier, type ItemSize,
 } from '@autocard/shared';
@@ -311,7 +311,9 @@ export class RunService {
         run.status = 'finished_win';
       }
     } else {
-      run.prestige -= PRESTIGE_LOSS_PER_DEFEAT;
+      // 声望扣除：前期扣1，后期（day>=2）扣 min(day, PRESTIGE_LOSS_CAP)
+      const loss = Math.min(PRESTIGE_LOSS_PER_DEFEAT * Math.max(1, run.day), PRESTIGE_LOSS_CAP);
+      run.prestige -= loss;
       if (run.prestige <= 0) {
         run.prestige = 0;
         run.status = 'finished_lose';

@@ -1,8 +1,8 @@
 import type { MonsterConfig } from '@autocard/shared';
 
 /**
- * AutoCard 怪物配置 v2 — 9 只怪物
- * 难度梯度：easy x3 / medium x3 / hard x3
+ * AutoCard 怪物配置 v2 — 10 只怪物
+ * 难度梯度：easy x3 / medium x3 / hard x4
  * 每档怪物有不同的端口组合和战斗风格
  * 
  * 数值设计原则：
@@ -182,6 +182,26 @@ export const MONSTERS: MonsterConfig[] = [
       { itemId: 'u15_thorn_amulet', chance: 0.15 },
       { itemId: 'u07_hourglass', chance: 0.2 },
     ],
+  },
+  {
+    monsterId: 'shadow_assassin',
+    name: '暗影刺客',
+    difficulty: 'hard',
+    hp: 100,
+    attack: 25,
+    // 暗影刺客：高攻低血，毒+伤害速攻型
+    battleBoard: [
+      { itemId: '神经毒素', slotIndex: 0 },
+      { itemId: '毒刺', slotIndex: 2 },
+      { itemId: 'u07_hourglass', slotIndex: 4 },
+    ],
+    lootTable: [
+      { itemId: '毒刺', chance: 0.25 },
+      { itemId: '神经毒素', chance: 0.20 },
+      { itemId: 'u09_gear_clockwork', chance: 0.15 },
+    ],
+    xpReward: 3,
+    goldReward: 8,
   },
 ];
 

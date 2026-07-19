@@ -6,10 +6,13 @@ export const INITIAL_PRESTIGE = 20;
 export const PVP_WINS_TO_WIN = 10;
 
 /** 每天基础收入（天开始时自动获得） */
-export const DAILY_BASE_INCOME = 2;
+export const DAILY_BASE_INCOME = 3;
 
 /** PvP 败场声望扣除基数（实际扣除 = min(day, PRESTIGE_LOSS_CAP)） */
 export const PRESTIGE_LOSS_PER_DEFEAT = 1;
+
+/** 声望扣除上限：后期天数越高扣越多，但不超过此值 */
+export const PRESTIGE_LOSS_CAP = 2;
 
 export const HOUR_TYPE = {
   1: 'choice',
