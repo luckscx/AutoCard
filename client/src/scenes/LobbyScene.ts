@@ -1,7 +1,7 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js'
-import { api } from '../api/client.js';
+import { api, setUserId, getGitHubLoginUrl } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import { W, H, SIDE_PAD } from '../ui/layout.js';
 import type { HeroConfig } from '@autocard/shared';
@@ -34,6 +34,9 @@ export class LobbyScene extends Scene {
 
   async onEnter() {
     this.removeChildren();
+
+    // 处理 OAuth 回调（URL 中的 auth 参数）
+    this.handleOAuthCallback();
 
     const title = new Text({
       text: '自走牌 AutoCard',
@@ -83,6 +86,15 @@ export class LobbyScene extends Scene {
           }
         });
         this.addChild(nick);
+
+        // 显示 GitHub 登录按钮（未绑定 GitHub 时才显示）
+        const hasGithub = me.oauthProviders?.some(p => p.provider === 'github');
+        if (!hasGithub) {
+          this.addGitHubLoginButton();
+        }
+      } else {
+        // 未登录，显示 GitHub 登录按钮
+        this.addGitHubLoginButton();
       }
 
       this.maybeShowTutorial();
@@ -136,6 +148,45 @@ export class LobbyScene extends Scene {
     wrap.addChild(ok);
 
     this.addChild(wrap);
+  }
+
+  /** 处理 OAuth 回调参数 */
+  private handleOAuthCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const authType = params.get('auth');
+    if (!authType) return;
+
+    if (authType === 'github') {
+      const uid = params.get('uid');
+      const nickname = params.get('nickname');
+      if (uid) {
+        setUserId(uid);
+        console.log(`GitHub 登录成功: ${nickname || uid}`);
+      }
+    } else if (authType === 'error') {
+      const message = params.get('message') || '登录失败';
+      console.error('OAuth 登录失败:', message);
+    }
+
+    // 清除 URL 中的 auth 参数，保持 URL 整洁
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('auth');
+    cleanUrl.searchParams.delete('uid');
+    cleanUrl.searchParams.delete('nickname');
+    cleanUrl.searchParams.delete('message');
+    window.history.replaceState({}, '', cleanUrl.toString());
+  }
+
+  /** 添加 GitHub 登录按钮 */
+  private addGitHubLoginButton() {
+    const loginBtn = new Button('GitHub 登录', 120, 36, 0x24292e);
+    loginBtn.x = W / 2 - 60;
+    loginBtn.y = 105;
+    loginBtn.on('pointertap', () => {
+      // 跳转到后端 GitHub OAuth 入口
+      window.location.href = getGitHubLoginUrl();
+    });
+    this.addChild(loginBtn);
   }
 
   private renderHeroCards(heroes: HeroConfig[]) {

@@ -29,6 +29,8 @@ router.get('/me', wrap(async (req, res) => {
     userId: user._id!.toString(),
     nickname: user.nickname,
     openId,
+    avatarUrl: user.avatarUrl,
+    oauthProviders: user.oauthProviders?.map(p => ({ provider: p.provider, providerId: p.providerId })),
   });
 }));
 

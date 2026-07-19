@@ -13,6 +13,17 @@ const BASE = '/api';
 let userId = localStorage.getItem('autocard_uid') || crypto.randomUUID();
 localStorage.setItem('autocard_uid', userId);
 
+/** 设置当前用户 ID（OAuth 回调后使用） */
+export function setUserId(newUid: string) {
+  userId = newUid;
+  localStorage.setItem('autocard_uid', userId);
+}
+
+/** 获取 GitHub OAuth 登录地址 */
+export function getGitHubLoginUrl(): string {
+  return `${BASE}/auth/github`;
+}
+
 async function request<T>(method: string, path: string, body?: any, retries = 3): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {

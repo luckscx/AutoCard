@@ -4,6 +4,16 @@ export interface UserMeResponse {
   userId: string;
   nickname: string;
   openId: string;
+  avatarUrl?: string;
+  oauthProviders?: { provider: string; providerId: string }[];
+}
+
+// --- Auth ---
+export interface AuthCallbackQuery {
+  auth: 'github' | 'error';
+  uid?: string;
+  nickname?: string;
+  message?: string;
 }
 
 // --- Run ---
