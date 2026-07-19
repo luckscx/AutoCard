@@ -13,3 +13,7 @@ tool/down_card_db.zip
 .obsidian
 .claude/skills/playwright-cli
 shared/tsconfig.tsbuildinfo
+
+# 误生成的 npm 缓存目录（以 Notion page id 命名，非项目文件）
+3a2bac22-c405-803a-bbac-eec4919aeea2/
+server/3a2bac22-c405-803a-bbac-eec4919aeea2/
