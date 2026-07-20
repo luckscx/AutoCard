@@ -116,7 +116,7 @@ export class BattleScene extends Scene {
 
     const battleTitle = new Text({
       text: data.type === 'pve' ? `PvE — ${data.monsterName}` : `PvP — ${data.opponentHero}`,
-      style: { fill: '#ff8866', fontSize: 12, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ff8866', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     battleTitle.x = INNER_X;
     battleTitle.y = BATTLE_Z1_Y + 4;
@@ -124,7 +124,7 @@ export class BattleScene extends Scene {
 
     const speedLabel = new Text({
       text: `${gameState.settings.playbackSpeed}x`,
-      style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     speedLabel.anchor.set(1, 0);
     speedLabel.x = W - SIDE_PAD - 4;
@@ -133,7 +133,7 @@ export class BattleScene extends Scene {
 
     this.tickLabel = new Text({
       text: 'Tick 0',
-      style: { fill: '#99aacc', fontSize: 10, fontFamily: 'Arial' },
+      style: { fill: '#99aacc', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     this.tickLabel.x = INNER_X;
     this.tickLabel.y = BATTLE_Z1_Y + 20;
@@ -147,7 +147,7 @@ export class BattleScene extends Scene {
     zehBg.y = BATTLE_ZEH_Y;
     this.addChild(zehBg);
 
-    const enemyHpLabel = new Text({ text: '敌', style: { fill: '#ff8866', fontSize: 11, fontFamily: 'Arial' } });
+    const enemyHpLabel = new Text({ text: '敌', style: { fill: '#ff8866', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
     enemyHpLabel.x = INNER_X;
     enemyHpLabel.y = BATTLE_ZEH_Y + 4;
     this.addChild(enemyHpLabel);
@@ -158,7 +158,7 @@ export class BattleScene extends Scene {
     this.enemyHpBar.y = BATTLE_ZEH_Y + 4;
     this.addChild(this.enemyHpBar);
 
-    this.enemyStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Arial' } });
+    this.enemyStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
     this.enemyStatusText.anchor.set(1, 0);
     this.enemyStatusText.x = W - SIDE_PAD - 4;
     this.enemyStatusText.y = BATTLE_ZEH_Y + 4;
@@ -207,7 +207,7 @@ export class BattleScene extends Scene {
     zphBg.y = BATTLE_ZPH_Y;
     this.addChild(zphBg);
 
-    const playerHpLabel = new Text({ text: '我', style: { fill: '#4ad97a', fontSize: 11, fontFamily: 'Arial' } });
+    const playerHpLabel = new Text({ text: '我', style: { fill: '#4ad97a', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
     playerHpLabel.x = INNER_X;
     playerHpLabel.y = BATTLE_ZPH_Y + 4;
     this.addChild(playerHpLabel);
@@ -217,7 +217,7 @@ export class BattleScene extends Scene {
     this.playerHpBar.y = BATTLE_ZPH_Y + 4;
     this.addChild(this.playerHpBar);
 
-    this.playerStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Arial' } });
+    this.playerStatusText = new Text({ text: '', style: { fill: '#cccccc', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
     this.playerStatusText.anchor.set(1, 0);
     this.playerStatusText.x = W - SIDE_PAD - 4;
     this.playerStatusText.y = BATTLE_ZPH_Y + 4;
@@ -242,7 +242,7 @@ export class BattleScene extends Scene {
     this.overtimeWarning.addChild(otBorder);
     const otText = new Text({
       text: '加时！全局扣血中',
-      style: { fill: '#ff4400', fontSize: 18, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ff4400', fontSize: 18, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     otText.anchor.set(0.5);
     otText.x = W / 2;
@@ -455,7 +455,7 @@ export class BattleScene extends Scene {
   private spawnFloat(x: number, y: number, text: string, color: string, fontSize = 14) {
     const t = new Text({
       text,
-      style: { fill: color, fontSize, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: color, fontSize, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     t.anchor.set(0.5);
     t.x = x + (Math.random() - 0.5) * 30;
@@ -517,7 +517,7 @@ export class BattleScene extends Scene {
 
     const txt = new Text({
       text: '(无战斗数据)',
-      style: { fill: '#aaaacc', fontSize: 14, fontFamily: 'Arial' },
+      style: { fill: '#aaaacc', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     txt.anchor.set(0.5);
     txt.x = W / 2;
@@ -556,7 +556,7 @@ export class BattleScene extends Scene {
 
     const resultTitle = new Text({
       text: result.won ? '🏆 胜利！' : '💀 失败',
-      style: { fill: result.won ? '#4ad97a' : '#d94a4a', fontSize: 22, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: result.won ? '#4ad97a' : '#d94a4a', fontSize: 22, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     resultTitle.anchor.set(0.5, 0);
     resultTitle.x = panel.x + panelW / 2;
@@ -566,7 +566,7 @@ export class BattleScene extends Scene {
     // HP 剩余
     const hpText = new Text({
       text: `剩余 HP: ${result.hpLeft}  | +${result.xpGained} XP  +${result.goldGained} G`,
-      style: { fill: '#aaddff', fontSize: 14, fontFamily: 'Arial' },
+      style: { fill: '#aaddff', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     hpText.anchor.set(0.5, 0);
     hpText.x = panel.x + panelW / 2;
@@ -577,7 +577,7 @@ export class BattleScene extends Scene {
     if (hasLoot) {
       const lootTitle = new Text({
         text: '战利品',
-        style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       lootTitle.anchor.set(0.5, 0);
       lootTitle.x = panel.x + panelW / 2;
@@ -588,7 +588,7 @@ export class BattleScene extends Scene {
         const cfg = gameState.itemsMap.get(itemId);
         const lt = new Text({
           text: cfg?.name ?? itemId,
-          style: { fill: '#ffcc88', fontSize: 12, fontFamily: 'Arial' },
+          style: { fill: '#ffcc88', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
         });
         lt.anchor.set(0.5, 0);
         lt.x = panel.x + panelW / 2;
@@ -648,7 +648,7 @@ class HpBar extends Container {
 
     this.hpLabel = new Text({
       text: '',
-      style: { fill: '#ffffff', fontSize: 9, fontFamily: 'Arial' },
+      style: { fill: '#ffffff', fontSize: 9, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     this.hpLabel.y = this.barH + 1;
     this.addChild(this.hpLabel);

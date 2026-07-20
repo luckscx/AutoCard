@@ -14,6 +14,7 @@ const BASE = '/api';
 const LS_TOKEN = 'autocard_token';
 const LS_REFRESH = 'autocard_refresh';
 const LS_UID = 'autocard_uid';
+const SS_GUEST = 'autocard_guest';
 
 function getToken(): string | null {
   return localStorage.getItem(LS_TOKEN);
@@ -42,11 +43,14 @@ localStorage.setItem(LS_UID, legacyUserId);
 
 function authHeaders(): Record<string, string> {
   const token = getToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // 所有业务 API 都携带稳定的客户端 ID。游客直接依赖该 header；JWT
+  // 失效并降级为游客时，重试请求也不会出现 x-user-id 缺失。
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-user-id': legacyUserId,
+  };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  } else {
-    headers['x-user-id'] = legacyUserId;
   }
   return headers;
 }
@@ -86,15 +90,64 @@ export function getWechatLoginUrl(): string {
   return `${BASE}/auth/wechat`;
 }
 
-async function request<T>(method: string, path: string, body?: any, retries = 3): Promise<T> {
+export type OAuthCallbackResult =
+  | { handled: false }
+  | { handled: true; ok: true; provider: 'github' | 'wechat' }
+  | { handled: true; ok: false; message: string };
+
+/** 在绘制页面前消费 OAuth 回调；fragment 优先，同时兼容旧版 query 回调。 */
+export function consumeOAuthCallback(): OAuthCallbackResult {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#\??/, ''));
+  const params = hash.has('auth') ? hash : query;
+  const authType = params.get('auth');
+  if (!authType) return { handled: false };
+
+  // 立即清除 URL 中的凭据，避免刷新重复处理以及 token 被复制或记录。
+  const cleanQuery = params === query ? '' : window.location.search;
+  window.history.replaceState({}, '', `${window.location.pathname}${cleanQuery}` || '/');
+
+  if (authType === 'error') {
+    return { handled: true, ok: false, message: params.get('message') || '第三方登录失败' };
+  }
+  if (authType !== 'github' && authType !== 'wechat') {
+    return { handled: true, ok: false, message: '未知的第三方登录回调' };
+  }
+
+  const userId = params.get('uid');
+  const accessToken = params.get('token');
+  const refreshToken = params.get('refreshToken');
+  if (!userId || !accessToken || !refreshToken) {
+    return { handled: true, ok: false, message: '第三方登录回调缺少凭据，请重试' };
+  }
+
+  authApi.saveLogin({
+    accessToken,
+    refreshToken,
+    user: { userId, nickname: params.get('nickname') || userId },
+  });
+  return { handled: true, ok: true, provider: authType };
+}
+
+interface RequestOptions {
+  /** 认证接口必须关闭，避免携带过期 JWT 触发无关的刷新流程。 */
+  authenticated?: boolean;
+  /** 只默认重试幂等 GET；注册等写请求不能自动重放。 */
+  retries?: number;
+}
+
+async function request<T>(method: string, path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
+  const authenticated = options.authenticated !== false;
+  const retries = options.retries ?? (method === 'GET' ? 3 : 0);
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(`${BASE}${path}`, {
         method,
-        headers: authHeaders(),
+        headers: authenticated ? authHeaders() : { 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (res.status === 401 && getToken()) {
+      if (authenticated && res.status === 401 && getToken()) {
         // accessToken 过期，尝试用 refreshToken 静默刷新
         const refreshed = await tryRefresh();
         if (refreshed) {
@@ -124,11 +177,13 @@ async function request<T>(method: string, path: string, body?: any, retries = 3)
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
+        // HTTP 业务错误已经得到服务端响应，不应重试（注册重放可能产生重复账号）。
+        throw Object.assign(new Error(err.error || res.statusText), { isHttpError: true });
       }
       return res.json();
     } catch (e) {
-      if (attempt < retries) {
+      const isHttpError = e instanceof Error && 'isHttpError' in e;
+      if (!isHttpError && attempt < retries) {
         await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
         continue;
       }
@@ -148,13 +203,13 @@ export interface AuthResponse {
 
 export const authApi = {
   register: (username: string, password: string, nickname?: string) =>
-    request<AuthResponse>('POST', '/auth/register', { username, password, nickname }),
+    request<AuthResponse>('POST', '/auth/register', { username, password, nickname }, { authenticated: false }),
 
   login: (username: string, password: string) =>
-    request<AuthResponse>('POST', '/auth/login', { username, password }),
+    request<AuthResponse>('POST', '/auth/login', { username, password }, { authenticated: false }),
 
   refresh: (refreshToken: string) =>
-    request<{ accessToken: string; expiresIn: number }>('POST', '/auth/refresh', { refreshToken }),
+    request<{ accessToken: string; expiresIn: number }>('POST', '/auth/refresh', { refreshToken }, { authenticated: false }),
 
   logout: async () => {
     const token = getToken();
@@ -165,14 +220,29 @@ export const authApi = {
       }).catch(() => {});
     }
     clearToken();
+    sessionStorage.removeItem(SS_GUEST);
   },
 
   isLoggedIn: () => !!getToken(),
 
+  isGuest: () => sessionStorage.getItem(SS_GUEST) === '1',
+
+  continueAsGuest: () => {
+    clearToken();
+    sessionStorage.setItem(SS_GUEST, '1');
+  },
+
+  /** 退出游客模式，下一次进入大厅时重新展示登录页。 */
+  leaveGuest: () => {
+    sessionStorage.removeItem(SS_GUEST);
+  },
+
   /** 登录/注册成功后保存 token */
   saveLogin: (res: AuthResponse) => {
+    sessionStorage.removeItem(SS_GUEST);
     setToken(res.accessToken);
     if (res.refreshToken) setRefreshToken(res.refreshToken);
+    setUserId(res.user.userId);
   },
 };
 

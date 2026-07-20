@@ -63,14 +63,14 @@ export class SlotGrid extends Container {
 
       const nameText = new Text({
         text: cfg.name,
-        style: { fill: '#111', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: w - 4 },
+        style: { fill: '#111', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', wordWrap: true, wordWrapWidth: w - 4 },
       });
       nameText.x = 4;
       nameText.y = 4;
 
       const tierText = new Text({
         text: item.tier.toUpperCase(),
-        style: { fill: '#333', fontSize: 10, fontFamily: 'Arial' },
+        style: { fill: '#333', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
       });
       tierText.x = 4;
       tierText.y = SLOT_H - 16;

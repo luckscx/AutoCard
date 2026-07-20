@@ -4,6 +4,7 @@ import { Button } from '../ui/Button.js';
 import { BoardRow } from '../ui/BoardRow.js';
 import { BottomBar } from '../ui/BottomBar.js';
 import { MenuView } from '../ui/MenuView.js';
+import { ClockView } from '../ui/ClockView.js';
 import { api } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
 import {
@@ -25,7 +26,11 @@ export class MainScene extends Scene {
   private z2Content!: Container;
   private sellHint!: Container;
   private menuView!: MenuView;
+  private clockView!: ClockView;
   private stashOpen = false;
+  private choicePending = false;
+  private feedbackToast?: Container;
+  private feedbackTimer?: ReturnType<typeof setTimeout>;
 
   constructor(sm: SceneManager) {
     super();
@@ -33,8 +38,10 @@ export class MainScene extends Scene {
   }
 
   async onEnter() {
+    this.clearFeedbackToast();
     this.removeChildren();
     this.stashOpen = false;
+    this.choicePending = false;
     const run = gameState.run!;
 
     if (run.status !== 'active') {
@@ -79,7 +86,7 @@ export class MainScene extends Scene {
 
     const boardLabel = new Text({
       text: '我的棋盘',
-      style: { fill: '#8899aa', fontSize: 11, fontFamily: 'Arial' },
+      style: { fill: '#8899aa', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     boardLabel.x = INNER_X;
     boardLabel.y = Z3_Y + 4;
@@ -129,6 +136,11 @@ export class MainScene extends Scene {
     this.renderZ2();
   }
 
+  onExit() {
+    this.clearFeedbackToast();
+    this.choicePending = false;
+  }
+
   // ====== Z1 顶栏 ======
 
   private buildMenuButton() {
@@ -166,15 +178,14 @@ export class MainScene extends Scene {
     this.z1Content.removeChildren();
     const run = gameState.run!;
     const hourType = HOUR_TYPE[run.hour as keyof typeof HOUR_TYPE];
-    const hourLabel = hourType === 'choice' ? '运营' : hourType === 'pve' ? 'PvE' : 'PvP';
 
-    const title = new Text({
-      text: `Day${run.day} H${run.hour} — ${hourLabel}`,
-      style: { fill: '#ffd700', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
-    });
-    title.x = INNER_X;
-    title.y = Z1_Y + (Z1_H - 16) / 2;
-    this.z1Content.addChild(title);
+    // 钟表组件（左侧），上方写天数，钟面表盘表示第几小时
+    this.clockView = new ClockView();
+    this.clockView.update(run.day, run.hour, hourType);
+    // 钟面圆心放在 Z1 左侧，距左 padding，垂直居中
+    this.clockView.x = SIDE_PAD + 26;
+    this.clockView.y = Z1_Y + Z1_H / 2 + 1; // +1 微调让天数文字不顶边
+    this.z1Content.addChild(this.clockView);
   }
 
   // ====== Z2 内容区 ======
@@ -186,7 +197,7 @@ export class MainScene extends Scene {
     if (this.stashOpen) {
       const stashTitle = new Text({
         text: '储物箱',
-        style: { fill: '#ffcc00', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#ffcc00', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       stashTitle.x = INNER_X;
       stashTitle.y = Z2_LABEL_Y;
@@ -229,7 +240,7 @@ export class MainScene extends Scene {
   ) {
     const title = new Text({
       text: `升至 Lv.${pending.level}！选择奖励`,
-      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     title.x = INNER_X;
     title.y = Z2_LABEL_Y;
@@ -246,8 +257,11 @@ export class MainScene extends Scene {
           const result = await api.levelUpChoice(runId, i);
           gameState.setRun(result.run);
           this.refresh();
+<<<<<<< HEAD
           this.renderZ2();
           showUpgradeEffect(this, `⬆️ 升至 Lv.${pending.level}！${choice.label}`, 0xffd700);
+=======
+>>>>>>> beb5574 (auto-commit-by-daily-sync 2026-07-20 23:00)
         } catch (e: any) {
           console.error('levelup choice failed:', e.message);
           alert(e.message || '升级选择失败');
@@ -270,7 +284,7 @@ export class MainScene extends Scene {
     this.sellHint.addChild(bg);
     const text = new Text({
       text: '松手售出卡牌',
-      style: { fill: '#ffffff', fontSize: coverZ2 ? 22 : 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: coverZ2 ? 22 : 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     text.anchor.set(0.5);
     text.x = W / 2;
@@ -371,6 +385,9 @@ export class MainScene extends Scene {
     this.stashRow.update(run.stash);
     this.bottomBar.update(run);
     this.renderZ1();
+    // Z2 依赖当前小时、待处理事件和升级奖励；统一在 refresh 内更新，
+    // 避免每个调用方自行补画而导致漏画或重复绘制。
+    this.renderZ2();
   }
 
   private async handleSell(item: SlotItem, from: 'board' | 'stash') {
@@ -461,21 +478,90 @@ export class MainScene extends Scene {
       btn.x = INNER_X;
       btn.y = Z2_CARD_Y + i * 60;
       btn.on('pointertap', async () => {
+        // 三个选择按钮共享请求锁，避免礼物请求过程中点击另一项选择。
+        if (this.choicePending) return;
+        this.choicePending = true;
+
+        // pointertap 在请求完成前仍可重复触发；礼物请求又不会切换到独立场景，
+        // 因而重复请求/无即时反馈会表现成“点击无响应”。
+        btn.eventMode = 'none';
+        btn.cursor = 'wait';
+        btn.setText('处理中…');
+
         try {
           const result = await api.hourChoice(runId, c.choice);
           gameState.setRun(result.run);
+
           if (c.choice === 'shop' && result.shopItems) {
-            this.sm.goto('shop', { run: result.run, shopItems: result.shopItems });
-          } else {
-            this.sm.goto('main');
+            await this.sm.goto('shop', { run: result.run, shopItems: result.shopItems });
+            return;
+          }
+
+          // event / gift 都留在主场景。refresh 会统一重绘顶栏、棋盘、底栏和 Z2，
+          // 确保礼物入箱、时间推进以及升级奖励在同一轮更新。
+          this.refresh();
+          this.choicePending = false;
+
+          if (c.choice === 'gift' && result.gift) {
+            this.showGiftSuccess(result.gift.itemId);
           }
         } catch (e: any) {
           console.error('hourChoice failed:', e.message);
+          this.choicePending = false;
+          btn.eventMode = 'static';
+          btn.cursor = 'pointer';
+          btn.setText(c.label);
           alert(e.message || '操作失败');
         }
       });
       this.z2Content.addChild(btn);
     });
+  }
+
+  /** 免费礼物没有独立场景，用短暂浮层明确告知物品已入库。 */
+  private showGiftSuccess(itemId: string) {
+    this.clearFeedbackToast();
+
+    const itemName = gameState.itemsMap.get(itemId)?.name ?? itemId;
+    const toast = new Container();
+    const toastW = W - SIDE_PAD * 4;
+    const toastH = 58;
+
+    const bg = new Graphics();
+    bg.roundRect(0, 0, toastW, toastH, 10);
+    bg.fill({ color: 0x183d2a, alpha: 0.97 });
+    bg.stroke({ color: 0x4ad97a, width: 2 });
+    toast.addChild(bg);
+
+    const message = new Text({
+      text: `🎁 已领取「${itemName}」\n已放入储物箱`,
+      style: {
+        fill: '#ffffff', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
+        fontWeight: 'bold', align: 'center', lineHeight: 20,
+      },
+    });
+    message.anchor.set(0.5);
+    message.x = toastW / 2;
+    message.y = toastH / 2;
+    toast.addChild(message);
+
+    toast.x = SIDE_PAD * 2;
+    toast.y = Z2_Y + 8;
+    this.feedbackToast = toast;
+    this.addChild(toast);
+    this.feedbackTimer = setTimeout(() => this.clearFeedbackToast(), 2200);
+  }
+
+  private clearFeedbackToast() {
+    if (this.feedbackTimer) {
+      clearTimeout(this.feedbackTimer);
+      this.feedbackTimer = undefined;
+    }
+    if (this.feedbackToast) {
+      this.feedbackToast.removeFromParent();
+      this.feedbackToast.destroy({ children: true });
+      this.feedbackToast = undefined;
+    }
   }
 
   private showPendingEvent(
@@ -484,7 +570,7 @@ export class MainScene extends Scene {
   ) {
     const title = new Text({
       text: pending.name,
-      style: { fill: '#ffd700', fontSize: 15, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 15, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     title.x = INNER_X;
     title.y = Z2_LABEL_Y;
@@ -492,7 +578,7 @@ export class MainScene extends Scene {
 
     const desc = new Text({
       text: pending.description,
-      style: { fill: '#ccddee', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: W - SIDE_PAD * 2 - INNER_X },
+      style: { fill: '#ccddee', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', wordWrap: true, wordWrapWidth: W - SIDE_PAD * 2 - INNER_X },
     });
     desc.x = INNER_X;
     desc.y = Z2_LABEL_Y + 24;
@@ -588,7 +674,7 @@ export class MainScene extends Scene {
 
     const text = new Text({
       text: won ? '🏆 胜利！\n累计 10 场 PvP 胜利！' : '游戏结束\n声望耗尽',
-      style: { fill: won ? '#ffd700' : '#ff4444', fontSize: 28, fontFamily: 'Arial', align: 'center' },
+      style: { fill: won ? '#ffd700' : '#ff4444', fontSize: 28, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', align: 'center' },
     });
     text.anchor.set(0.5);
     text.x = W / 2;
@@ -597,7 +683,7 @@ export class MainScene extends Scene {
 
     const stats = new Text({
       text: `天数: ${run.day}  等级: ${run.level}  PvP胜场: ${run.pvpWins}`,
-      style: { fill: '#aaaacc', fontSize: 16, fontFamily: 'Arial' },
+      style: { fill: '#aaaacc', fontSize: 16, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     stats.anchor.set(0.5);
     stats.x = W / 2;

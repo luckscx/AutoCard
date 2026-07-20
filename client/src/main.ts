@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import { SceneManager } from './core/SceneManager.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
+import { HeroSelectScene } from './scenes/HeroSelectScene.js';
 import { MainScene } from './scenes/MainScene.js';
 import { BattleScene } from './scenes/BattleScene.js';
 import { ShopScene } from './scenes/ShopScene.js';
@@ -36,6 +37,7 @@ async function boot() {
 
   const sm = new SceneManager(app);
   sm.register('lobby', new LobbyScene(sm));
+  sm.register('hero-select', new HeroSelectScene(sm));
   sm.register('main', new MainScene(sm));
   sm.register('battle', new BattleScene(sm));
   sm.register('shop', new ShopScene(sm));

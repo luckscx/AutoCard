@@ -49,7 +49,7 @@ export class CardView extends Container {
     // 名称
     const name = new Text({
       text: cfg.name,
-      style: { fill: '#ffffff', fontSize: this.size === 1 ? 11 : 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: this.size === 1 ? 11 : 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     name.anchor.set(0.5, 0);
     name.x = w / 2;
@@ -67,7 +67,7 @@ export class CardView extends Container {
     }).join(' ');
     const portText = new Text({
       text: portStr,
-      style: { fill: tierHex(this.tier), fontSize: this.size === 1 ? 10 : 12, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: tierHex(this.tier), fontSize: this.size === 1 ? 10 : 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     portText.anchor.set(0.5, 0);
     portText.x = w / 2;
@@ -77,7 +77,7 @@ export class CardView extends Container {
     // 冷却 (左下)
     const cdText = new Text({
       text: `${cfg.cooldown}`,
-      style: { fill: '#aaddff', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aaddff', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     cdText.x = 6;
     cdText.y = h - 18;
@@ -86,7 +86,7 @@ export class CardView extends Container {
     // Tier 标记 (右下)
     const tierLabel = new Text({
       text: this.tier[0].toUpperCase(),
-      style: { fill: tierHex(this.tier), fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: tierHex(this.tier), fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     tierLabel.anchor.set(1, 0);
     tierLabel.x = w - 6;
@@ -97,7 +97,7 @@ export class CardView extends Container {
     if (this.size >= 2 && !hasImage) {
       const desc = new Text({
         text: cfg.description,
-        style: { fill: '#99aabb', fontSize: 10, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: w - 16 },
+        style: { fill: '#99aabb', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', wordWrap: true, wordWrapWidth: w - 16 },
       });
       desc.x = 8;
       desc.y = 50;
@@ -217,7 +217,7 @@ export class ShopCardView extends Container {
     // 名称（顶部居中）
     const name = new Text({
       text: cfg.name,
-      style: { fill: '#ffffff', fontSize: cfg.size === 1 ? 12 : 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: cfg.size === 1 ? 12 : 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     name.anchor.set(0.5, 0);
     name.x = w / 2;
@@ -233,7 +233,7 @@ export class ShopCardView extends Container {
       const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join('  ');
       const portText = new Text({
         text: portStr,
-        style: { fill: tierHex(cfg.baseTier), fontSize: cfg.size === 1 ? 11 : 13, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: tierHex(cfg.baseTier), fontSize: cfg.size === 1 ? 11 : 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       portText.anchor.set(0.5, 0);
       portText.x = w / 2;
@@ -243,7 +243,7 @@ export class ShopCardView extends Container {
       // 价格 / CD / 格数
       const info = new Text({
         text: `${cfg.price}G  CD:${cfg.cooldown}s  ${cfg.size}格`,
-        style: { fill: '#ffcc00', fontSize: 11, fontFamily: 'Arial' },
+        style: { fill: '#ffcc00', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
       });
       info.anchor.set(0.5, 0);
       info.x = w / 2;
@@ -253,7 +253,7 @@ export class ShopCardView extends Container {
       // ── 无图片时的回退布局（文字版）──
       const desc = new Text({
         text: cfg.description,
-        style: { fill: '#99aabb', fontSize: 11, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: w - 12 },
+        style: { fill: '#99aabb', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', wordWrap: true, wordWrapWidth: w - 12 },
       });
       desc.x = 6;
       desc.y = 28;
@@ -262,7 +262,7 @@ export class ShopCardView extends Container {
       const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
       const portText = new Text({
         text: portStr,
-        style: { fill: tierHex(cfg.baseTier), fontSize: 12, fontFamily: 'Arial' },
+        style: { fill: tierHex(cfg.baseTier), fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
       });
       portText.x = 6;
       portText.y = 68;
@@ -270,7 +270,7 @@ export class ShopCardView extends Container {
 
       const info = new Text({
         text: `${cfg.price}G  CD:${cfg.cooldown}  ${cfg.size}格`,
-        style: { fill: '#ffcc00', fontSize: 12, fontFamily: 'Arial' },
+        style: { fill: '#ffcc00', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
       });
       info.x = 6;
       info.y = 88;
@@ -284,7 +284,7 @@ export class ShopCardView extends Container {
     if (opts.canUpgrade && !opts.purchased) {
       const upBadge = new Text({
         text: '⬆️可升级',
-        style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#ffd700', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       upBadge.anchor.set(1, 0);
       upBadge.x = w - 4;
@@ -293,19 +293,19 @@ export class ShopCardView extends Container {
     }
 
     if (opts.purchased) {
-      const sold = new Text({ text: '已购', style: { fill: '#4ad97a', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' } });
+      const sold = new Text({ text: '已购', style: { fill: '#4ad97a', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' } });
       sold.anchor.set(0.5, 0);
       sold.x = w / 2;
       sold.y = statusY;
       this.addChild(sold);
     } else if (!opts.canAfford) {
-      const noGold = new Text({ text: '金币不足', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Arial' } });
+      const noGold = new Text({ text: '金币不足', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
       noGold.anchor.set(0.5, 0);
       noGold.x = w / 2;
       noGold.y = statusY;
       this.addChild(noGold);
     } else if (!opts.canPlace && !opts.canUpgrade) {
-      const noPlace = new Text({ text: '无法放置', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Arial' } });
+      const noPlace = new Text({ text: '无法放置', style: { fill: '#ff6666', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
       noPlace.anchor.set(0.5, 0);
       noPlace.x = w / 2;
       noPlace.y = statusY;
@@ -323,7 +323,7 @@ export class ShopCardView extends Container {
       this.addChild(btn);
       const btnText = new Text({
         text: opts.canUpgrade ? '升级' : '购买',
-        style: { fill: '#fff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#fff', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       btnText.anchor.set(0.5);
       btnText.x = w / 2;

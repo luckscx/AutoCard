@@ -1,32 +1,19 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
-import { Button } from '../ui/Button.js'
-import { api, authApi, setUserId, getGitHubLoginUrl, getWechatLoginUrl } from '../api/client.js';
+import { Button } from '../ui/Button.js';
+import { api, authApi, consumeOAuthCallback } from '../api/client.js';
 import { gameState } from '../core/GameState.js';
-import { W, H, SIDE_PAD } from '../ui/layout.js';
-import { showAuthOverlay } from '../ui/AuthOverlay.js';
-import type { HeroConfig } from '@autocard/shared';
+import { W, H } from '../ui/layout.js';
+import { C, T, drawFullscreenBg, drawGlowOrb, drawPanel } from '../ui/theme.js';
+import { closeAuthOverlay, showAuthOverlay } from '../ui/AuthOverlay.js';
 import type { SceneManager } from '../core/SceneManager.js';
 
-/** 只展示这 3 个英雄 */
-const VISIBLE_HEROES = ['dooley', 'jules', 'mak'];
+const FONT = 'Noto Sans CJK SC, Arial, sans-serif';
 
-/** 各英雄头像背景色 */
-const HERO_AVATAR_COLOR: Record<string, number> = {
-  dooley: 0x1a3a5c,
-  jules:  0x3a1a2c,
-  mak:    0x1a3a1a,
-};
-
-/** 各英雄头像首字 */
-const HERO_INITIAL: Record<string, string> = {
-  dooley: '杜',
-  jules:  '朱',
-  mak:    '麦',
-};
-
+/** 主大厅：负责认证、配置预加载、账户入口和场景导航。 */
 export class LobbyScene extends Scene {
-  private sm: SceneManager;
+  private readonly sm: SceneManager;
+  private enterId = 0;
 
   constructor(sm: SceneManager) {
     super();
@@ -34,405 +21,214 @@ export class LobbyScene extends Scene {
   }
 
   async onEnter() {
+    const enterId = ++this.enterId;
+    closeAuthOverlay();
     this.removeChildren();
 
-    // 处理 OAuth 回调（URL 中的 auth 参数）
-    this.handleOAuthCallback();
+    // ── 装饰性背景 ──
+    const bgG = new Graphics();
+    drawFullscreenBg(bgG, W, H);
+    this.addChild(bgG);
 
-    // ── 认证检查：未登录则弹出登录/注册浮层 ──
-    if (!authApi.isLoggedIn()) {
+    // 发光装饰球
+    const orbG = new Graphics();
+    drawGlowOrb(orbG, W * 0.2, H * 0.12, 60, C.blue, 0.06);
+    drawGlowOrb(orbG, W * 0.85, H * 0.08, 50, C.purple, 0.05);
+    drawGlowOrb(orbG, W * 0.5, H * 0.7, 120, C.blueDark, 0.04);
+    this.addChild(orbG);
+
+    const oauth = consumeOAuthCallback();
+    if (!authApi.isLoggedIn() && !authApi.isGuest()) {
+      const errMsg = oauth.handled && !oauth.ok ? oauth.message : '';
       showAuthOverlay(() => {
-        // 登录/注册成功或游客跳过后，重新进入 Lobby
-        this.onEnter();
-      });
+        void this.sm.goto('lobby');
+      }, errMsg);
       return;
     }
 
+    // ── 标题区 ──
     const title = new Text({
-      text: '自走牌 AutoCard',
-      style: { fill: '#e0e0ff', fontSize: 28, fontFamily: 'Arial', fontWeight: 'bold' },
+      text: '自走牌',
+      style: {
+        fill: 0xffffff,
+        fontSize: 38,
+        fontFamily: FONT,
+        fontWeight: 'bold',
+        dropShadow: { color: C.blue, alpha: 0.4, distance: 2, blur: 6, angle: Math.PI / 2 },
+      },
     });
     title.anchor.set(0.5, 0);
-    title.x = W / 2;
-    title.y = 40;
+    title.position.set(W / 2, 72);
     this.addChild(title);
 
-    const loadingText = new Text({
-      text: '连接服务器中...',
-      style: { fill: '#aaaacc', fontSize: 16, fontFamily: 'Arial' },
+    // 副标题
+    const subtitle = new Text({
+      text: 'AutoCard · 异世界冒险',
+      style: { fill: T.blue, fontSize: 14, fontFamily: FONT },
     });
-    loadingText.anchor.set(0.5, 0);
-    loadingText.x = W / 2;
-    loadingText.y = 90;
-    this.addChild(loadingText);
+    subtitle.anchor.set(0.5, 0);
+    subtitle.position.set(W / 2, 118);
+    this.addChild(subtitle);
+
+    // ── Loading 提示 ──
+    const loading = new Text({
+      text: '连接服务器中...',
+      style: { fill: T.secondary, fontSize: 14, fontFamily: FONT },
+    });
+    loading.anchor.set(0.5, 0);
+    loading.position.set(W / 2, 200);
+    this.addChild(loading);
 
     try {
-      const [heroes, items, bazaarItems, me] = await Promise.all([
+      const [heroes, items, bazaarItems, me, currentRun] = await Promise.all([
         api.getHeroes(),
         api.getItems(),
         api.getBazaarItems().catch(() => []),
         api.getUserMe().catch(() => null),
+        api.getCurrentRun(),
       ]);
+      if (enterId !== this.enterId) return;
+
       gameState.setConfigs(heroes, items, bazaarItems);
+      gameState.setRun(currentRun.run);
+      this.removeChild(loading);
+      loading.destroy();
 
-      if (me) {
-        const nick = new Text({
-          text: `冒险者：${me.nickname}`,
-          style: { fill: '#aaddff', fontSize: 13, fontFamily: 'Arial' },
-        });
-        nick.anchor.set(0.5, 0);
-        nick.x = W / 2;
-        nick.y = 84;
-        nick.eventMode = 'static';
-        nick.cursor = 'pointer';
-        nick.on('pointertap', async () => {
-          const next = window.prompt('新昵称（1–24 字）', me.nickname);
-          if (next == null || !next.trim()) return;
-          try {
-            const u = await api.patchNickname(next.trim());
-            nick.text = `冒险者：${u.nickname}`;
-          } catch (err: any) {
-            alert(err.message || '修改失败');
-          }
-        });
-        this.addChild(nick);
-
-        // 登出按钮（仅已登录用户显示）
-        const logout = new Text({
-          text: '[退出]',
-          style: { fill: '#ff6b6b', fontSize: 11, fontFamily: 'Arial' },
-        });
-        logout.anchor.set(0.5, 0);
-        logout.x = W / 2;
-        logout.y = 102;
-        logout.eventMode = 'static';
-        logout.cursor = 'pointer';
-        logout.on('pointertap', () => {
-          authApi.logout();
-          this.onEnter();
-        });
-        this.addChild(logout);
-
-        // 排行榜入口按钮
-        const lbBtn = new Button('🏆 排行榜', 100, 32, 0x4a90d9);
-        lbBtn.x = W / 2 - 50;
-        lbBtn.y = 120;
-        lbBtn.on('pointertap', () => this.sm.goto('leaderboard'));
-        this.addChild(lbBtn);
-
-        // 显示 GitHub 登录按钮（未绑定 GitHub 时才显示）
-        const hasGithub = me.oauthProviders?.some(p => p.provider === 'github');
-        if (!hasGithub) {
-          this.addGitHubLoginButton();
-        }
-        // 显示微信登录按钮（未绑定微信时才显示）
-        const hasWechat = me.oauthProviders?.some(p => p.provider === 'wechat');
-        if (!hasWechat) {
-          this.addWechatLoginButton();
-        }
-      } else {
-        // 未登录，显示 GitHub + 微信登录按钮
-        this.addGitHubLoginButton();
-        this.addWechatLoginButton();
+      // ── 账户信息卡片 ──
+      if (authApi.isLoggedIn() && me) {
+        this.renderAccount(me.nickname);
+      } else if (authApi.isGuest()) {
+        this.renderGuestAccount();
       }
-
-      this.maybeShowTutorial();
-
-      const { run: existingRun } = await api.getCurrentRun();
-      if (existingRun) {
-        gameState.setRun(existingRun);
-        this.sm.goto('main');
-        return;
-      }
-
-      loadingText.text = '选择英雄';
-      this.renderHeroCards(heroes);
-    } catch (e: any) {
-      console.error('Failed to load:', e.message);
-      loadingText.text = '连接失败，点击重试';
-      loadingText.eventMode = 'static';
-      loadingText.cursor = 'pointer';
-      loadingText.on('pointertap', () => this.onEnter());
+      this.renderActions(Boolean(currentRun.run));
+    } catch (error: any) {
+      if (enterId !== this.enterId) return;
+      console.error('Failed to load lobby:', error.message);
+      loading.text = '连接失败，点击重试';
+      loading.style.fill = T.red;
+      loading.eventMode = 'static';
+      loading.cursor = 'pointer';
+      loading.on('pointertap', () => void this.sm.goto('lobby'));
     }
   }
 
-  private maybeShowTutorial() {
-    if (localStorage.getItem('autocard_tip_seen')) return;
-
-    // 新手引导步骤
-    const steps = [
-      { title: '🎯 游戏目标', body: '每天 6 小时循环推进，累计 10 场 PvP 胜利即可通关；声望（生命）耗尽则失败。' },
-      { title: '⚙️ 端口系统', body: '棋盘（Board）是你部署卡牌的端口。卡牌放入端口后自动触发效果，棋子越多战力越强。' },
-      { title: '🛒 运营小时', body: '每日起始为「运营」：三选一（商店/事件/礼物）。商店刷新卡牌，事件触发抉择，礼物免费拿牌。' },
-      { title: '⚔️ PvE / PvP', body: '第 3 小时打 PvE 怪物练级，第 6 小时打 PvP 镜像战。胜利积累声望与经验，失败扣声望。' },
-      { title: '🔗 合并与出售', body: '同类卡牌可合并升级；不需要的卡牌可出售换金币。合理规划端口布局是取胜关键！' },
-    ];
-
-    let stepIdx = 0;
-    const wrap = new Container();
-    this.addChild(wrap);
-
-    const renderStep = () => {
-      wrap.removeChildren();
-      const tipW = W - SIDE_PAD * 2;
-      const bg = new Graphics();
-      const boxH = 130;
-      bg.roundRect(0, 0, tipW, boxH, 8);
-      bg.fill({ color: 0x0a1520, alpha: 0.95 });
-      bg.stroke({ color: 0x4a90d9, width: 1.5 });
-      bg.x = SIDE_PAD;
-      bg.y = H - boxH - 20;
-      wrap.addChild(bg);
-
-      const step = steps[stepIdx];
-      const titleText = new Text({
-        text: `${step.title} (${stepIdx + 1}/${steps.length})`,
-        style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
-      });
-      titleText.x = SIDE_PAD + 12;
-      titleText.y = H - boxH - 12;
-      wrap.addChild(titleText);
-
-      const bodyText = new Text({
-        text: step.body,
-        style: { fill: '#ccddee', fontSize: 12, fontFamily: 'Arial', wordWrap: true, wordWrapWidth: tipW - 130 },
-      });
-      bodyText.x = SIDE_PAD + 12;
-      bodyText.y = H - boxH + 14;
-      wrap.addChild(bodyText);
-
-      // 按钮区
-      const isLast = stepIdx === steps.length - 1;
-      const nextBtn = new Button(isLast ? '开始游戏' : '下一步', 90, 32, isLast ? 0x07c160 : 0x4a90d9);
-      nextBtn.x = W - SIDE_PAD - 98;
-      nextBtn.y = H - 52;
-      nextBtn.on('pointertap', () => {
-        if (isLast) {
-          localStorage.setItem('autocard_tip_seen', '1');
-          this.removeChild(wrap);
-          wrap.destroy({ children: true });
-        } else {
-          stepIdx++;
-          renderStep();
-        }
-      });
-      wrap.addChild(nextBtn);
-
-      if (stepIdx > 0) {
-        const prevBtn = new Button('上一步', 80, 32, 0x2a2a4a);
-        prevBtn.x = W - SIDE_PAD - 196;
-        prevBtn.y = H - 52;
-        prevBtn.on('pointertap', () => {
-          stepIdx--;
-          renderStep();
-        });
-        wrap.addChild(prevBtn);
-      }
-
-      const skip = new Text({
-        text: '跳过引导',
-        style: { fill: '#888', fontSize: 11, fontFamily: 'Arial' },
-      });
-      skip.x = SIDE_PAD + 12;
-      skip.y = H - 48;
-      skip.eventMode = 'static';
-      skip.cursor = 'pointer';
-      skip.on('pointertap', () => {
-        localStorage.setItem('autocard_tip_seen', '1');
-        this.removeChild(wrap);
-        wrap.destroy({ children: true });
-      });
-      wrap.addChild(skip);
-    };
-
-    renderStep();
+  onExit() {
+    this.enterId++;
+    closeAuthOverlay();
   }
 
-  /** 处理 OAuth 回调参数 */
-  private handleOAuthCallback() {
-    const params = new URLSearchParams(window.location.search);
-    const authType = params.get('auth');
-    if (!authType) return;
+  private renderAccount(nickname: string) {
+    // 账户面板
+    const panelW = W - 40;
+    const panelH = 52;
+    const panelY = 158;
+    const panelG = new Graphics();
+    drawPanel(panelG, 0, 0, panelW, panelH, 10, C.panel, C.border, 0.06, C.blue);
+    panelG.x = 20;
+    panelG.y = panelY;
+    this.addChild(panelG);
 
-    if (authType === 'github') {
-      const uid = params.get('uid');
-      const nickname = params.get('nickname');
-      const token = params.get('token');
-      const refreshToken = params.get('refreshToken');
-      if (uid) {
-        setUserId(uid);
-        if (token) {
-          // GitHub OAuth 成功后保存 JWT（access + refresh）
-          authApi.saveLogin({ accessToken: token, refreshToken: refreshToken || '', user: { userId: uid, nickname: nickname || uid } });
-        }
-        console.log(`GitHub 登录成功: ${nickname || uid}`);
-      }
-    } else if (authType === 'wechat') {
-      const uid = params.get('uid');
-      const nickname = params.get('nickname');
-      const token = params.get('token');
-      const refreshToken = params.get('refreshToken');
-      if (uid) {
-        setUserId(uid);
-        if (token) {
-          // 微信 OAuth 成功后保存 JWT（access + refresh）
-          authApi.saveLogin({ accessToken: token, refreshToken: refreshToken || '', user: { userId: uid, nickname: nickname || uid } });
-        }
-        console.log(`微信登录成功: ${nickname || uid}`);
-      }
-    } else if (authType === 'error') {
-      const message = params.get('message') || '登录失败';
-      console.error('OAuth 登录失败:', message);
-    }
-
-    // 清除 URL 中的 auth 参数，保持 URL 整洁
-    const cleanUrl = new URL(window.location.href);
-    cleanUrl.searchParams.delete('auth');
-    cleanUrl.searchParams.delete('uid');
-    cleanUrl.searchParams.delete('nickname');
-    cleanUrl.searchParams.delete('token');
-    cleanUrl.searchParams.delete('message');
-    window.history.replaceState({}, '', cleanUrl.toString());
-  }
-
-  /** 添加 GitHub 登录按钮 */
-  private addGitHubLoginButton() {
-    const loginBtn = new Button('GitHub 登录', 120, 36, 0x24292e);
-    loginBtn.x = W / 2 - 60;
-    loginBtn.y = 158;
-    loginBtn.on('pointertap', () => {
-      window.location.href = getGitHubLoginUrl();
+    const avatar = new Text({
+      text: '🧙',
+      style: { fontSize: 22, fontFamily: FONT },
     });
-    this.addChild(loginBtn);
-  }
+    avatar.x = 14;
+    avatar.y = 15;
+    this.addChild(avatar);
 
-  /** 添加微信登录按钮 */
-  private addWechatLoginButton() {
-    const loginBtn = new Button('微信登录', 120, 36, 0x07c160);
-    loginBtn.x = W / 2 - 60;
-    loginBtn.y = 200;
-    loginBtn.on('pointertap', () => {
-      window.location.href = getWechatLoginUrl();
+    const nick = new Text({
+      text: `冒险者 · ${nickname}`,
+      style: { fill: T.blue, fontSize: 15, fontFamily: FONT, fontWeight: 'bold' },
     });
-    this.addChild(loginBtn);
-  }
-
-  private renderHeroCards(heroes: HeroConfig[]) {
-    // 只显示指定的 3 个英雄
-    const visible = heroes.filter(h => VISIBLE_HEROES.includes(h.heroId));
-
-    // 头像尺寸与布局参数
-    const avatarSize = 80;     // 头像方块边长
-    const avatarGap  = 20;     // 头像横向间距
-    const gridTop    = 180;    // 网格顶部 Y（页面中央偏上）
-
-    // 3 个头像横排，整体居中
-    const totalW = visible.length * avatarSize + (visible.length - 1) * avatarGap;
-    const startX = (W - totalW) / 2;
-
-    // 记录当前选中的 container，用于高亮切换
-    let selectedContainer: Container | null = null;
-
-    visible.forEach((hero, i) => {
-      const avatarBgColor = HERO_AVATAR_COLOR[hero.heroId] ?? 0x2a2a3a;
-      const initial       = HERO_INITIAL[hero.heroId] ?? hero.name.charAt(0);
-      const cellX         = startX + i * (avatarSize + avatarGap);
-
-      // ── 整个英雄格子（头像 + 名字 + 描述）放入一个 Container ──
-      const cell = new Container();
-      cell.x = cellX;
-      cell.y = gridTop;
-      cell.eventMode = 'static';
-      cell.cursor = 'pointer';
-      this.addChild(cell);
-
-      // 头像背景（圆角正方形）
-      const avatarBg = new Graphics();
-      avatarBg.roundRect(0, 0, avatarSize, avatarSize, 12);
-      avatarBg.fill({ color: avatarBgColor, alpha: 1 });
-      avatarBg.stroke({ color: 0x4a90d9, width: 1.5 });
-      cell.addChild(avatarBg);
-
-      // 高亮描边层（默认透明，选中时变金色）
-      const highlight = new Graphics();
-      highlight.roundRect(-2, -2, avatarSize + 4, avatarSize + 4, 14);
-      highlight.stroke({ color: 0xffd700, width: 3 });
-      highlight.alpha = 0;
-      cell.addChild(highlight);
-
-      // 英雄名首字（大字）
-      const initialText = new Text({
-        text: initial,
-        style: { fill: '#ffffff', fontSize: 34, fontFamily: 'Arial', fontWeight: 'bold' },
-      });
-      initialText.anchor.set(0.5, 0.5);
-      initialText.x = avatarSize / 2;
-      initialText.y = avatarSize / 2;
-      cell.addChild(initialText);
-
-      // 英雄名（头像下方，14px）
-      const nameText = new Text({
-        text: hero.name,
-        style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
-      });
-      nameText.anchor.set(0.5, 0);
-      nameText.x = avatarSize / 2;
-      nameText.y = avatarSize + 8;
-      cell.addChild(nameText);
-
-      // 描述文字（最多 2 行，11px，灰色）
-      const descText = new Text({
-        text: hero.description,
-        style: {
-          fill: '#999999',
-          fontSize: 11,
-          fontFamily: 'Arial',
-          wordWrap: true,
-          wordWrapWidth: avatarSize + 10,
-          align: 'center',
-        },
-      });
-      descText.anchor.set(0.5, 0);
-      descText.x = avatarSize / 2;
-      descText.y = avatarSize + 28;
-      cell.addChild(descText);
-
-      // ── 交互：hover 放大 ──
-      cell.on('pointerenter', () => {
-        cell.scale.set(1.05);
-      });
-      cell.on('pointerleave', () => {
-        cell.scale.set(1.0);
-      });
-
-      // ── 交互：点击选择 ──
-      cell.on('pointertap', () => {
-        // 取消上一个选中的高亮
-        if (selectedContainer) {
-          const prevHighlight = selectedContainer.getChildAt(1) as Graphics;
-          prevHighlight.alpha = 0;
-        }
-        // 点中同一个：取消选中并直接进入游戏
-        if (selectedContainer === cell) {
-          selectedContainer = null;
-        } else {
-          // 高亮当前头像
-          highlight.alpha = 1;
-          selectedContainer = cell;
-        }
-        // 直接触发英雄选择
-        this.selectHero(hero.heroId);
-      });
+    nick.x = 46;
+    nick.y = panelY + 18;
+    nick.eventMode = 'static';
+    nick.cursor = 'pointer';
+    nick.on('pointertap', async () => {
+      const next = window.prompt('新昵称（1–24 字）', nickname);
+      if (next == null || !next.trim()) return;
+      try {
+        const user = await api.patchNickname(next.trim());
+        nickname = user.nickname;
+        nick.text = `冒险者 · ${nickname}`;
+      } catch (error: any) {
+        alert(error.message || '修改失败');
+      }
     });
+    this.addChild(nick);
+
+    const logout = new Text({
+      text: '退出登录',
+      style: { fill: T.red, fontSize: 11, fontFamily: FONT },
+    });
+    logout.anchor.set(1, 0);
+    logout.x = W - 34;
+    logout.y = panelY + 20;
+    logout.eventMode = 'static';
+    logout.cursor = 'pointer';
+    logout.on('pointertap', async () => {
+      await authApi.logout();
+      gameState.setRun(null);
+      void this.sm.goto('lobby');
+    });
+    this.addChild(logout);
   }
 
-  private async selectHero(heroId: string) {
-    try {
-      const { run } = await api.startRun(heroId);
-      gameState.setRun(run);
-      this.sm.goto('main');
-    } catch (e: any) {
-      console.error('Start run failed:', e.message);
-    }
+  private renderGuestAccount() {
+    const panelW = W - 40;
+    const panelH = 52;
+    const panelY = 158;
+    const panelG = new Graphics();
+    drawPanel(panelG, 0, 0, panelW, panelH, 10, C.panel, C.border);
+    panelG.x = 20;
+    panelG.y = panelY;
+    this.addChild(panelG);
+
+    const guest = new Text({
+      text: '👤 游客模式',
+      style: { fill: T.secondary, fontSize: 15, fontFamily: FONT, fontWeight: 'bold' },
+    });
+    guest.x = 16;
+    guest.y = panelY + 18;
+    this.addChild(guest);
+
+    const backToLogin = new Text({
+      text: '返回登录 / 注册',
+      style: { fill: T.blue, fontSize: 12, fontFamily: FONT },
+    });
+    backToLogin.anchor.set(1, 0);
+    backToLogin.x = W - 34;
+    backToLogin.y = panelY + 20;
+    backToLogin.eventMode = 'static';
+    backToLogin.cursor = 'pointer';
+    backToLogin.on('pointertap', () => {
+      authApi.leaveGuest();
+      gameState.setRun(null);
+      void this.sm.goto('lobby');
+    });
+    this.addChild(backToLogin);
+  }
+
+  private renderActions(hasRun: boolean) {
+    // ── 主行动按钮 ──
+    const primaryColor = hasRun ? C.green : C.blue;
+    const primary = new Button(hasRun ? '继续冒险' : '开始新冒险', 200, 52, primaryColor);
+    primary.position.set((W - 200) / 2, 240);
+    primary.on('pointertap', () => void this.sm.goto(hasRun ? 'main' : 'hero-select'));
+    this.addChild(primary);
+
+    const hint = new Text({
+      text: hasRun ? '↩ 返回进行中的旅程' : '⚔ 选择英雄，开启冒险',
+      style: { fill: T.muted, fontSize: 12, fontFamily: FONT },
+    });
+    hint.anchor.set(0.5, 0);
+    hint.position.set(W / 2, 302);
+    this.addChild(hint);
+
+    // ── 排行榜按钮 ──
+    const leaderboard = new Button('🏆 排行榜', 160, 42, C.purple);
+    leaderboard.position.set((W - 160) / 2, 350);
+    leaderboard.on('pointertap', () => void this.sm.goto('leaderboard'));
+    this.addChild(leaderboard);
   }
 }

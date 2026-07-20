@@ -102,6 +102,12 @@ export class RunService {
   }
 
   async handleHourChoice(runId: string, userId: string, choice: 'shop' | 'event' | 'gift') {
+    // 联合类型在运行时会被擦除；服务层也须防御绕过路由的调用。
+    // 只有显式的 `gift` 才能进入礼物分支。
+    if (choice !== 'shop' && choice !== 'event' && choice !== 'gift') {
+      throw new Error('choice must be one of: shop, event, gift');
+    }
+
     const run = await this.getActiveRun(runId, userId);
     const hourType = HOUR_TYPE[run.hour as keyof typeof HOUR_TYPE];
     if (hourType !== 'choice') throw new Error(`Hour ${run.hour} is not a choice hour`);

@@ -1,5 +1,5 @@
-import * as bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { UserModel, type IUser } from '../models/User.js';
 

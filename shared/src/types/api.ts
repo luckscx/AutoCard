@@ -37,6 +37,7 @@ export interface GetRunResponse {
 
 // --- Hour Choice (1/2/4/5) ---
 export interface HourChoiceRequest {
+  runId: string;
   choice: ChoiceKind;
 }
 export interface HourChoiceResponse {

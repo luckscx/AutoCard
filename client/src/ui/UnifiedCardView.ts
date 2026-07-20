@@ -133,7 +133,7 @@ export class UnifiedCardView extends Container {
     const nameSize = this.item.size === 1 ? 9 : 12;
     const name = new Text({
       text: cfg.name,
-      style: { fill: '#ffffff', fontSize: nameSize, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: nameSize, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     name.anchor.set(0.5, 0);
     name.x = w / 2;
@@ -148,7 +148,7 @@ export class UnifiedCardView extends Container {
       style: {
         fill: tierHex(this.item.tier),
         fontSize: this.item.size === 1 ? 9 : 11,
-        fontFamily: 'Arial',
+        fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
         fontWeight: 'bold',
       },
     });
@@ -169,7 +169,7 @@ export class UnifiedCardView extends Container {
     // ── 底部：冷却（左）+ Tier（右）────────────────────────────────────────
     const cdText = new Text({
       text: `${cfg.cooldown}s`,
-      style: { fill: '#aaddff', fontSize: 10, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aaddff', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     cdText.x = 4;
     cdText.y = h - 17;
@@ -177,7 +177,7 @@ export class UnifiedCardView extends Container {
 
     const tierLabel = new Text({
       text: this.item.tier[0].toUpperCase(),
-      style: { fill: tierHex(this.item.tier), fontSize: 10, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: tierHex(this.item.tier), fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     tierLabel.anchor.set(1, 0);
     tierLabel.x = w - 4;
@@ -270,7 +270,7 @@ export class UnifiedCardView extends Container {
       const nameSize = this.item.size === 1 ? 8 : 11;
       const name = new Text({
         text: cfg.name,
-        style: { fill: '#ffffff', fontSize: nameSize, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#ffffff', fontSize: nameSize, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       name.anchor.set(0.5, 0);
       name.x = w / 2;
@@ -285,7 +285,7 @@ export class UnifiedCardView extends Container {
         style: {
           fill: tierHex(this.item.tier),
           fontSize: this.item.size === 1 ? 8 : 10,
-          fontFamily: 'Arial',
+          fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
           fontWeight: 'bold',
         },
       });
@@ -306,7 +306,7 @@ export class UnifiedCardView extends Container {
     // 进度标签
     this.cooldownLabel = new Text({
       text: '',
-      style: { fill: '#aaddff', fontSize: 8, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aaddff', fontSize: 8, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     this.cooldownLabel.anchor.set(0.5, 1);
     this.cooldownLabel.x = w / 2;
@@ -532,7 +532,7 @@ export class UnifiedCardView extends Container {
         this.statusOverlay.fill(STATUS_COLORS.destroyed);
         const xt = new Text({
           text: '✕',
-          style: { fill: '#ff4444', fontSize: this.w > 60 ? 26 : 16, fontFamily: 'Arial', fontWeight: 'bold' },
+          style: { fill: '#ff4444', fontSize: this.w > 60 ? 26 : 16, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
         });
         xt.anchor.set(0.5, 0.5);
         xt.x = this.w / 2;
@@ -547,7 +547,7 @@ export class UnifiedCardView extends Container {
         if (this.w > 50) {
           const ft = new Text({
             text: '冻',
-            style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+            style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
           });
           ft.anchor.set(0.5, 0.5);
           ft.x = this.w / 2;

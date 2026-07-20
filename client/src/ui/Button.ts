@@ -1,18 +1,34 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { sound } from '../audio/SoundManager.js';
+import { C, T, drawButtonBg } from './theme.js';
 
 export class Button extends Container {
   private bg: Graphics;
   private textNode: Text;
+  private w: number;
+  private h: number;
+  private color: number;
+  private pressed = false;
 
-  constructor(text: string, width = 200, height = 50, color = 0x4a90d9) {
+  constructor(text: string, width: number = 200, height: number = 50, color: number = C.blue) {
     super();
+    this.w = width;
+    this.h = height;
+    this.color = color;
     this.bg = new Graphics();
-    this.bg.roundRect(0, 0, width, height, 10);
-    this.bg.fill(color);
+    this.redraw();
     this.addChild(this.bg);
 
-    this.textNode = new Text({ text, style: { fill: '#ffffff', fontSize: 18, fontFamily: 'Arial' } });
+    this.textNode = new Text({
+      text,
+      style: {
+        fill: '#ffffff',
+        fontSize: 18,
+        fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
+        fontWeight: 'bold',
+        dropShadow: { color: '#000000', alpha: 0.3, distance: 1, blur: 0, angle: Math.PI / 2 },
+      },
+    });
     this.textNode.anchor.set(0.5);
     this.textNode.x = width / 2;
     this.textNode.y = height / 2;
@@ -21,25 +37,45 @@ export class Button extends Container {
     this.eventMode = 'static';
     this.cursor = 'pointer';
 
-    this.on('pointerdown', () => sound.play('click'));
+    this.on('pointerdown', () => {
+      sound.play('click');
+      this.pressed = true;
+      this.redraw();
+      this.scale.set(0.96);
+    });
     this.on('pointerover', () => {
-      this.bg.tint = 0xcccccc;
+      this.scale.set(1.04);
     });
     this.on('pointerout', () => {
-      this.bg.tint = 0xffffff;
+      this.pressed = false;
+      this.redraw();
+      this.scale.set(1);
     });
+    this.on('pointerup', () => {
+      this.pressed = false;
+      this.redraw();
+    });
+    this.on('pointerupoutside', () => {
+      this.pressed = false;
+      this.redraw();
+      this.scale.set(1);
+    });
+  }
+
+  private redraw() {
+    this.bg.clear();
+    drawButtonBg(this.bg, 0, 0, this.w, this.h, this.color, 10, this.pressed);
   }
 
   setText(text: string) {
     this.textNode.text = text;
   }
 
+  getColor() { return this.color; }
+
   /** 重新着色背景（用于切换选中态） */
   setColor(color: number) {
-    const w = this.bg.width;
-    const h = this.bg.height;
-    this.bg.clear();
-    this.bg.roundRect(0, 0, w, h, 10);
-    this.bg.fill(color);
+    this.color = color;
+    this.redraw();
   }
 }

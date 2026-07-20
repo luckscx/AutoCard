@@ -1,6 +1,7 @@
 import { Router } from 'express';
+import type { HourChoiceRequest } from '@autocard/shared';
 import { RunService } from '../services/RunService.js';
-import { UserModel } from '../models/User.js';
+import { getOrCreateGuestUser } from '../services/GuestUserService.js';
 
 const router = Router();
 const runService = new RunService();
@@ -13,10 +14,7 @@ async function getUserId(req: any): Promise<string> {
   const openId = req.headers['x-user-id'] as string;
   if (!openId) throw new Error('Authentication required');
 
-  let user = await UserModel.findOne({ openId });
-  if (!user) {
-    user = await UserModel.create({ openId, nickname: `Player_${openId.slice(0, 6)}` });
-  }
+  const user = await getOrCreateGuestUser(openId);
   return user._id!.toString();
 }
 
@@ -28,6 +26,25 @@ function wrap(fn: (req: any, res: any) => Promise<void>) {
       res.status(400).json({ error: e.message });
     }
   };
+}
+
+const HOUR_CHOICES = new Set<HourChoiceRequest['choice']>(['shop', 'event', 'gift']);
+
+/** 在 HTTP 边界校验，避免未知 choice 落入免费礼物分支。 */
+export function parseHourChoiceRequest(body: unknown): HourChoiceRequest {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('Invalid hour-choice request body');
+  }
+
+  const { runId, choice } = body as Record<string, unknown>;
+  if (typeof runId !== 'string' || runId.trim() === '') {
+    throw new Error('runId must be a non-empty string');
+  }
+  if (typeof choice !== 'string' || !HOUR_CHOICES.has(choice as HourChoiceRequest['choice'])) {
+    throw new Error('choice must be one of: shop, event, gift');
+  }
+
+  return { runId, choice: choice as HourChoiceRequest['choice'] };
 }
 
 router.post('/start', wrap(async (req, res) => {
@@ -51,8 +68,8 @@ router.get('/current', wrap(async (req, res) => {
 }));
 
 router.post('/hour-choice', wrap(async (req, res) => {
+  const { runId, choice } = parseHourChoiceRequest(req.body);
   const userId = await getUserId(req);
-  const { runId, choice } = req.body;
   const result = await runService.handleHourChoice(runId, userId, choice);
   res.json(result);
 }));

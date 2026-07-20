@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { UserModel } from '../models/User.js';
+import { getOrCreateGuestUser } from '../services/GuestUserService.js';
 
 const router = Router();
 
@@ -14,10 +15,7 @@ async function resolveUser(req: any) {
   // 2. 降级：旧版 x-user-id
   const openId = req.headers['x-user-id'] as string;
   if (!openId) throw new Error('Authentication required');
-  let user = await UserModel.findOne({ openId });
-  if (!user) {
-    user = await UserModel.create({ openId, nickname: `Player_${openId.slice(0, 6)}` });
-  }
+  const user = await getOrCreateGuestUser(openId);
   return { user, openId };
 }
 

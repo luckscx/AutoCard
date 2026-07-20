@@ -148,12 +148,16 @@ router.get('/github/callback', async (req, res) => {
     // 签发 token 对（access + refresh）并重定向到前端
     const tokens = await authService.issueTokens(user);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const redirectUrl = `${clientUrl}/?auth=github&token=${tokens.accessToken}&refreshToken=${tokens.refreshToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
+    const callback = new URLSearchParams({
+      auth: 'github', token: tokens.accessToken, refreshToken: tokens.refreshToken,
+      uid: tokens.user.userId, nickname: tokens.user.nickname,
+    });
+    const redirectUrl = `${clientUrl}/#${callback.toString()}`;
     res.redirect(redirectUrl);
   } catch (e: any) {
     console.error('GitHub OAuth callback error:', e.message);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    res.redirect(`${clientUrl}/?auth=error&message=${encodeURIComponent(e.message)}`);
+    res.redirect(`${clientUrl}/#${new URLSearchParams({ auth: 'error', message: e.message }).toString()}`);
   }
 });
 
@@ -238,12 +242,16 @@ router.get('/wechat/callback', async (req, res) => {
     // 签发 token 对（access + refresh）并重定向到前端
     const tokens = await authService.issueTokens(user);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const redirectUrl = `${clientUrl}/?auth=wechat&token=${tokens.accessToken}&refreshToken=${tokens.refreshToken}&uid=${user.openId}&nickname=${encodeURIComponent(user.nickname)}`;
+    const callback = new URLSearchParams({
+      auth: 'wechat', token: tokens.accessToken, refreshToken: tokens.refreshToken,
+      uid: tokens.user.userId, nickname: tokens.user.nickname,
+    });
+    const redirectUrl = `${clientUrl}/#${callback.toString()}`;
     res.redirect(redirectUrl);
   } catch (e: any) {
     console.error('微信 OAuth callback error:', e.message);
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    res.redirect(`${clientUrl}/?auth=error&message=${encodeURIComponent(e.message)}`);
+    res.redirect(`${clientUrl}/#${new URLSearchParams({ auth: 'error', message: e.message }).toString()}`);
   }
 });
 

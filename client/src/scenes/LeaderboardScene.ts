@@ -28,7 +28,7 @@ export class LeaderboardScene extends Scene {
 
     const title = new Text({
       text: '🏆 排行榜',
-      style: { fill: '#ffd700', fontSize: 24, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 24, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     title.anchor.set(0.5, 0);
     title.x = W / 2;
@@ -61,7 +61,7 @@ export class LeaderboardScene extends Scene {
     // 赛季标签
     const season = new Text({
       text: '赛季加载中...',
-      style: { fill: '#88ffaa', fontSize: 12, fontFamily: 'Arial' },
+      style: { fill: '#88ffaa', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     season.anchor.set(1, 0);
     season.x = W - SIDE_PAD;
@@ -72,7 +72,7 @@ export class LeaderboardScene extends Scene {
     // 加载中
     const loading = new Text({
       text: '加载中...',
-      style: { fill: '#aaaacc', fontSize: 14, fontFamily: 'Arial' },
+      style: { fill: '#aaaacc', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     loading.anchor.set(0.5, 0);
     loading.x = W / 2;
@@ -107,7 +107,7 @@ export class LeaderboardScene extends Scene {
     if (entries.length === 0) {
       const empty = new Text({
         text: '暂无数据',
-        style: { fill: '#888', fontSize: 14, fontFamily: 'Arial' },
+        style: { fill: '#888', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
       });
       empty.x = 0;
       empty.y = 20;
@@ -122,7 +122,7 @@ export class LeaderboardScene extends Scene {
     // 表头
     const header = new Text({
       text: this.getHeaderText(),
-      style: { fill: '#666688', fontSize: 11, fontFamily: 'monospace' },
+      style: { fill: '#666688', fontSize: 11, fontFamily: 'Noto Sans Mono CJK SC, monospace' },
     });
     header.x = 0;
     header.y = 0;
@@ -142,7 +142,7 @@ export class LeaderboardScene extends Scene {
       const nameStr = e.nickname.length > 9 ? e.nickname.slice(0, 9) : e.nickname.padEnd(9);
       const rowText = new Text({
         text: this.getRowText(e, nameStr),
-        style: { fill: rankColor, fontSize: 12, fontFamily: 'monospace' },
+        style: { fill: rankColor, fontSize: 12, fontFamily: 'Noto Sans Mono CJK SC, monospace' },
       });
       rowText.x = 8;
       rowText.y = y + 9;
@@ -153,7 +153,7 @@ export class LeaderboardScene extends Scene {
     if (myRank != null) {
       const myBadge = new Text({
         text: `★ 我的排名: #${myRank}`,
-        style: { fill: '#07c160', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: '#07c160', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
       myBadge.x = SIDE_PAD;
       myBadge.y = 20 + entries.length * rowH + 8;

@@ -69,25 +69,25 @@ export class CardTooltip extends Container {
     // 名称
     lines.push({
       text: cfg.name,
-      style: { fill: tierHex(tier), fontSize: 16, fontWeight: 'bold', fontFamily: 'Arial' },
+      style: { fill: tierHex(tier), fontSize: 16, fontWeight: 'bold', fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
 
     // 品质 · 大小
     const sizeLabel = cfg.size === 1 ? '小型(1格)' : cfg.size === 2 ? '中型(2格)' : '大型(3格)';
     lines.push({
       text: `${tierName(tier)} · ${sizeLabel}`,
-      style: { fill: '#aaaacc', fontSize: 11, fontFamily: 'Arial' },
+      style: { fill: '#aaaacc', fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
 
     // 分割线（用空行模拟）
-    lines.push({ text: '─────────────────', style: { fill: '#334455', fontSize: 10, fontFamily: 'Arial' } });
+    lines.push({ text: '─────────────────', style: { fill: '#334455', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' } });
 
     // 效果描述
     if (cfg.description) {
       lines.push({
         text: cfg.description,
         style: {
-          fill: '#ccddee', fontSize: 12, fontFamily: 'Arial',
+          fill: '#ccddee', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
           wordWrap: true, wordWrapWidth: TOOLTIP_W - PAD * 2,
         },
       });
@@ -99,7 +99,7 @@ export class CardTooltip extends Container {
       lines.push({ text: '', style: {} }); // 空行
       lines.push({
         text: portStr,
-        style: { fill: tierHex(tier), fontSize: 12, fontFamily: 'Arial', fontWeight: 'bold' },
+        style: { fill: tierHex(tier), fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
       });
     }
 
@@ -108,13 +108,13 @@ export class CardTooltip extends Container {
     // 冷却
     lines.push({
       text: `⏱ 冷却：${cfg.cooldown}s`,
-      style: { fill: '#aaddff', fontSize: 12, fontFamily: 'Arial' },
+      style: { fill: '#aaddff', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
 
     // 价格
     lines.push({
       text: `💰 价格：${cfg.price}G`,
-      style: { fill: '#ffd700', fontSize: 12, fontFamily: 'Arial' },
+      style: { fill: '#ffd700', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
 
     // Tags / Kinds
@@ -122,7 +122,7 @@ export class CardTooltip extends Container {
     if (tagList.length > 0) {
       lines.push({
         text: `🏷 ${tagList.join(' · ')}`,
-        style: { fill: '#778899', fontSize: 10, fontFamily: 'Arial' },
+        style: { fill: '#778899', fontSize: 10, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
       });
     }
 

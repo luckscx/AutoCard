@@ -79,7 +79,7 @@ export class BattleCardView extends Container {
         style: {
           fill: '#ffffff',
           fontSize: this.item.size === 1 ? 9 : 13,
-          fontFamily: 'Arial',
+          fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
           fontWeight: 'bold',
         },
       });
@@ -92,7 +92,7 @@ export class BattleCardView extends Container {
         const portStr = cfg.ports.map(p => `${portSymbol(p.type)}${p.value}`).join(' ');
         const portText = new Text({
           text: portStr,
-          style: { fill: tierHex(this.item.tier), fontSize: 11, fontFamily: 'Arial' },
+          style: { fill: tierHex(this.item.tier), fontSize: 11, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
         });
         portText.anchor.set(0.5, 0);
         portText.x = w / 2;
@@ -108,7 +108,7 @@ export class BattleCardView extends Container {
     // 进度标签（只在 size>1 时显示，size=1 卡太窄）
     this.cdLabel = new Text({
       text: '',
-      style: { fill: '#aaddff', fontSize: 9, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aaddff', fontSize: 9, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     this.cdLabel.anchor.set(0.5, 1);
     this.cdLabel.x = w / 2;
@@ -274,7 +274,7 @@ export class BattleCardView extends Container {
         // 叉号
         const xt = new Text({
           text: '✕',
-          style: { fill: '#ff4444', fontSize: w > 60 ? 26 : 16, fontFamily: 'Arial', fontWeight: 'bold' },
+          style: { fill: '#ff4444', fontSize: w > 60 ? 26 : 16, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
         });
         xt.anchor.set(0.5, 0.5);
         xt.x = w / 2;
@@ -289,7 +289,7 @@ export class BattleCardView extends Container {
         if (w > 50) {
           const ft = new Text({
             text: '冻',
-            style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+            style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
           });
           ft.anchor.set(0.5, 0.5);
           ft.x = w / 2;

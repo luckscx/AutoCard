@@ -64,7 +64,7 @@ class Slider extends Container {
     // 标签文字
     const lbl = new Text({
       text: label,
-      style: { fill: '#ccddee', fontSize: 13, fontFamily: 'Arial' },
+      style: { fill: '#ccddee', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     lbl.x = 0;
     lbl.y = 0;
@@ -94,7 +94,7 @@ class Slider extends Container {
     // 数值标签
     this.valueLabel = new Text({
       text: String(this._value),
-      style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: 13, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     this.valueLabel.x = trackW + 14;
     this.valueLabel.y = 22;
@@ -219,7 +219,7 @@ export class MenuView extends Container {
     // 标题
     const titleText = new Text({
       text: '菜 单',
-      style: { fill: '#ffd700', fontSize: 20, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 20, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     titleText.anchor.set(0.5, 0);
     titleText.x = PW / 2;
@@ -285,7 +285,7 @@ export class MenuView extends Container {
 
     const subtitleBgm = new Text({
       text: '🎵 背景音乐',
-      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     subtitleBgm.x = 40;
     subtitleBgm.y = 68;
@@ -302,7 +302,7 @@ export class MenuView extends Container {
 
     const subtitleSfx = new Text({
       text: '🔊 音效',
-      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     subtitleSfx.x = 40;
     subtitleSfx.y = 158;
@@ -320,7 +320,7 @@ export class MenuView extends Container {
     // ── 战斗速度 ──────────────────────────────────────────────────
     const subtitleSpeed = new Text({
       text: '⚡ 战斗速度',
-      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#aabbcc', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     subtitleSpeed.x = 40;
     subtitleSpeed.y = 252;
@@ -407,7 +407,7 @@ export class MenuView extends Container {
 
     const title = new Text({
       text: '重开本局',
-      style: { fill: '#ff6666', fontSize: 17, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ff6666', fontSize: 17, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     title.anchor.set(0.5, 0);
     title.x = DW / 2;
@@ -419,7 +419,7 @@ export class MenuView extends Container {
       style: {
         fill: '#ccddee',
         fontSize: 13,
-        fontFamily: 'Arial',
+        fontFamily: 'Noto Sans CJK SC, Arial, sans-serif',
         align: 'center',
         wordWrap: true,
         wordWrapWidth: DW - 40,

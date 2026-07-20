@@ -73,7 +73,7 @@ export class ShopScene extends Scene {
 
     const shopTitle = new Text({
       text: '商店',
-      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     shopTitle.x = INNER_X;
     shopTitle.y = Z1_Y + 10;
@@ -81,7 +81,7 @@ export class ShopScene extends Scene {
 
     const goldLabel = new Text({
       text: `${run.gold} G`,
-      style: { fill: '#ffcc00', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffcc00', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     goldLabel.x = INNER_X + 60;
     goldLabel.y = Z1_Y + 10;
@@ -118,7 +118,7 @@ export class ShopScene extends Scene {
     this.sellHint.addChild(sellBg);
     const sellText = new Text({
       text: '松手售出卡牌',
-      style: { fill: '#ffffff', fontSize: 28, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffffff', fontSize: 28, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     sellText.anchor.set(0.5);
     sellText.x = W / 2;
@@ -179,7 +179,7 @@ export class ShopScene extends Scene {
 
     const boardLabel = new Text({
       text: '我的棋盘',
-      style: { fill: '#8899aa', fontSize: 12, fontFamily: 'Arial' },
+      style: { fill: '#8899aa', fontSize: 12, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif' },
     });
     boardLabel.x = INNER_X;
     boardLabel.y = Z3_Y + 4;
@@ -245,7 +245,7 @@ export class ShopScene extends Scene {
     // 标题
     const stashTitle = new Text({
       text: '储物箱',
-      style: { fill: '#ffcc00', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+      style: { fill: '#ffcc00', fontSize: 14, fontFamily: 'Noto Sans CJK SC, Arial, sans-serif', fontWeight: 'bold' },
     });
     stashTitle.x = INNER_X;
     stashTitle.y = Z2_LABEL_Y;
