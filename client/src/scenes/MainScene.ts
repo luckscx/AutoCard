@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Scene } from '../core/SceneManager.js';
 import { Button } from '../ui/Button.js';
 import { BoardRow } from '../ui/BoardRow.js';
@@ -13,7 +13,8 @@ import {
   Z3_Y, Z3_H, Z3_CARD_Y,
 } from '../ui/layout.js';
 import { HOUR_TYPE } from '@autocard/shared';
-import type { SlotItem } from '@autocard/shared';
+import { GLOBAL_PASSIVE_MAP } from '@autocard/shared';
+import type { SlotItem, GlobalPassiveId, PendingSkillChoiceState } from '@autocard/shared';
 import type { SceneManager } from '../core/SceneManager.js';
 import { showUpgradeEffect } from '../ui/UpgradeEffect.js';
 
@@ -208,6 +209,11 @@ export class MainScene extends Scene {
 
     this.stashRow.visible = false;
 
+    if (run.pendingSkillChoice) {
+      this.showSkillChoices(run.id, run.pendingSkillChoice);
+      return;
+    }
+
     if (run.pendingLevelUp) {
       this.showLevelUpChoices(run.id, run.pendingLevelUp);
       return;
@@ -265,6 +271,89 @@ export class MainScene extends Scene {
         } catch (e: any) {
           console.error('levelup choice failed:', e.message);
           alert(e.message || '升级选择失败');
+        }
+      });
+      this.z2Content.addChild(btn);
+    });
+  }
+
+  // PvE 胜利后全局被动技能 3 选 1
+  /** 技能图标纹理缓存 */
+  private static skillIconCache = new Map<string, Texture>();
+
+  private showSkillChoices(
+    runId: string,
+    pending: PendingSkillChoiceState,
+  ) {
+    const title = new Text({
+      text: '⚔️ 战斗胜利！选择被动技能',
+      style: { fill: '#ffd700', fontSize: 14, fontFamily: 'Arial', fontWeight: 'bold' },
+    });
+    title.x = INNER_X;
+    title.y = Z2_LABEL_Y;
+    this.z2Content.addChild(title);
+
+    const btnColors = [0x4a90d9, 0x4ad97a, 0xd9704a];
+    const btnW = W - SIDE_PAD * 2 - INNER_X * 2;
+    const iconSize = 50;
+    pending.choices.forEach((choiceId, i) => {
+      const cfg = GLOBAL_PASSIVE_MAP.get(choiceId as GlobalPassiveId);
+      if (!cfg) return;
+
+      // ── 按钮容器 ──
+      const btn = new Button('', btnW, 65, btnColors[i] ?? 0x4a90d9);
+      btn.x = INNER_X;
+      btn.y = Z2_CARD_Y + i * 72;
+
+      // ── 技能图标 ──
+      const iconUrl = `assets/skills/${choiceId}.png`;
+      const iconX = 8;
+      const iconY = (65 - iconSize) / 2;
+      const applyIcon = (texture: Texture) => {
+        const sprite = new Sprite(texture);
+        const ratio = texture.width / texture.height;
+        if (ratio > 1) {
+          sprite.width = iconSize;
+          sprite.height = iconSize / ratio;
+        } else {
+          sprite.height = iconSize;
+          sprite.width = iconSize * ratio;
+        }
+        sprite.x = iconX;
+        sprite.y = iconY + (iconSize - sprite.height) / 2;
+        btn.addChild(sprite);
+      };
+      if (MainScene.skillIconCache.has(iconUrl)) {
+        applyIcon(MainScene.skillIconCache.get(iconUrl)!);
+      } else {
+        Assets.load<Texture>(iconUrl)
+          .then((texture: Texture) => {
+            MainScene.skillIconCache.set(iconUrl, texture);
+            applyIcon(texture);
+          })
+          .catch((err: unknown) => {
+            console.warn(`Failed to load skill icon: ${iconUrl}`, err);
+          });
+      }
+
+      // ── 文字（偏移以留出图标空间）──
+      const label = new Text({
+        text: `${cfg.name}\n${cfg.description}`,
+        style: { fill: '#ffffff', fontSize: 11, fontFamily: 'Arial', fontWeight: 'bold', wordWrap: true, wordWrapWidth: btnW - iconSize - 20, breakWords: true },
+      });
+      label.x = iconX + iconSize + 6;
+      label.y = iconY + 2;
+      btn.addChild(label);
+
+      btn.on('pointertap', async () => {
+        try {
+          const result = await api.skillChoice(runId, choiceId);
+          gameState.setRun(result.run);
+          this.refresh();
+          this.renderZ2();
+        } catch (e: any) {
+          console.error('skill choice failed:', e.message);
+          alert(e.message || '技能选择失败');
         }
       });
       this.z2Content.addChild(btn);

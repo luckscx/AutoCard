@@ -51,6 +51,58 @@ export interface PendingLevelUpState {
   choices: GameLevelUpChoice[];
 }
 
+// ────────────────────────────────────────────────────────────────
+// 全局被动技能系统（PvE 胜利后 3 选 1）
+// ────────────────────────────────────────────────────────────────
+
+/** 全局被动技能 ID — 对应技能池中的技能 */
+export type GlobalPassiveId =
+  | 'burn_power'        // 灼烧端口 +N
+  | 'poison_power'      // 毒素端口 +N
+  | 'damage_power'      // 伤害端口 +N%
+  | 'heal_power'        // 治疗端口 +N%
+  | 'shield_power'      // 护盾端口 +N
+  | 'crit_boost'        // 暴击率 +N%
+  | 'haste_boost'       // 加速端口持续 +N秒
+  | 'hp_regen_passive'  // 每场战斗后回复 N HP
+  | 'gold_bonus_passive'// 金币获取 +N
+  | 'cooldown_reduction'// 所有卡牌冷却 -N%
+  | 'burn_enhance'      // 灼烧叠层不掉（每tick仅减0.5）
+  | 'poison_enhance'    // 毒素不衰减
+  | 'lifesteal'         // 伤害的 N% 转为治疗
+  | 'overtime_immune'   // 免疫加时赛伤害
+  | 'shield_start'      // 开局获得 N 护盾
+  ;
+
+/** 被动技能配置定义（静态数据，不随 Run 变化） */
+export interface GlobalPassiveConfig {
+  id: GlobalPassiveId;
+  name: string;
+  description: string;
+  icon: string;          // emoji 图标
+  /** 技能分类，用于 3 选 1 抽取时的策略 */
+  category: 'offense' | 'defense' | 'utility' | 'synergy';
+  /** 同一技能是否可叠加选取；false 则已拥有时不再出现 */
+  stackable: boolean;
+  /** 效果数值（>0 时为增益倍率/值，由引擎按技能逻辑解释） */
+  value: number;
+}
+
+/** 运行时已习得的全局被动技能实例 */
+export interface OwnedPassive {
+  id: GlobalPassiveId;
+  /** 已叠加的次数（非可叠加技能最多 1） */
+  stacks: number;
+  /** 当前总效果值 = config.value * stacks */
+  totalValue: number;
+}
+
+/** PvE 胜利后挂起的 3 选 1 技能选择状态 */
+export interface PendingSkillChoiceState {
+  /** 可选的 3 个技能 ID（已过滤已有非叠加技能） */
+  choices: GlobalPassiveId[];
+}
+
 export interface RunState {
   id: string;
   userId: string;
@@ -74,6 +126,8 @@ export interface RunState {
   goldGainBonus?: number;  // 默认 0，所有金币获取来源的额外加成量
   boardSlots: number;            // 当前可用棋盘格数（4~10）
   pendingLevelUp?: PendingLevelUpState | null;
+  globalPassives?: OwnedPassive[];          // 已习得的全局被动技能
+  pendingSkillChoice?: PendingSkillChoiceState | null; // PvE 胜利后挂起的技能选择
 }
 
 export interface PvpMirrorSnapshot {

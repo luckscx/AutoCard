@@ -151,6 +151,10 @@ export interface LevelUpChoiceResponse {
   run: RunState;
 }
 
+export interface SkillChoiceResponse {
+  run: RunState;
+}
+
 // --- 玩家档案与战绩统计 [4.3] ---
 
 export interface RunHistoryEntry {

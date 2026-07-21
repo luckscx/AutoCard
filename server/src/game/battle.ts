@@ -1,4 +1,4 @@
-import type { SlotItem, BattleResult, BattleEvent, BattleSnapshot, MonsterConfig } from '@autocard/shared';
+import type { SlotItem, BattleResult, BattleEvent, BattleSnapshot, MonsterConfig, OwnedPassive } from '@autocard/shared';
 import { ITEMS_MAP, BAZAAR_ITEMS_MAP } from './config/index.js';
 import { runBattleEngine } from './battle/engine.js';
 
@@ -7,6 +7,7 @@ interface Combatant {
   maxHp: number;
   level: number;
   board: SlotItem[];
+  passives?: OwnedPassive[];
 }
 
 // Merge both item maps for complete item lookups

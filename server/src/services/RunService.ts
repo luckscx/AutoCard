@@ -3,8 +3,10 @@ import {
   INITIAL_PRESTIGE, XP_PER_LEVEL, PVP_WINS_TO_WIN,
   HOURS_PER_DAY, HOUR_TYPE, shopRefreshCostForLevel, boardSlotsForLevel,
   DAILY_BASE_INCOME, PRESTIGE_LOSS_PER_DEFEAT, PRESTIGE_LOSS_CAP,
+  GLOBAL_PASSIVE_POOL, GLOBAL_PASSIVE_MAP, SKILL_CHOICES_COUNT,
   type RunState, type BattleResult, type SlotItem, type PendingLevelUpState,
   type Tier, type ItemSize, type EventConfig,
+  type OwnedPassive, type GlobalPassiveId,
 } from '@autocard/shared';
 import { RunModel, type IRun } from '../models/Run.js';
 import { PvpMirrorModel } from '../models/PvpMirror.js';
@@ -39,6 +41,8 @@ function toRunState(doc: IRun): RunState {
     goldGainBonus: doc.goldGainBonus,
     boardSlots: doc.boardSlots ?? 4,
     pendingLevelUp: doc.pendingLevelUp ? (doc.pendingLevelUp as unknown as PendingLevelUpState) : undefined,
+    globalPassives: (doc.globalPassives as OwnedPassive[] | undefined) ?? undefined,
+    pendingSkillChoice: doc.pendingSkillChoice ?? undefined,
   };
 }
 
@@ -203,7 +207,7 @@ export class RunService {
     const monster = monsters[Math.floor(Math.random() * monsters.length)];
 
     const battleResult = resolvePveBattle(
-      { hp: run.maxHp, maxHp: run.maxHp, level: run.level, board: run.board },
+      { hp: run.maxHp, maxHp: run.maxHp, level: run.level, board: run.board, passives: run.globalPassives ?? undefined },
       monster,
     );
 
@@ -229,6 +233,19 @@ export class RunService {
         if (freeSlot < 0) continue;
         run.stash.push({ itemId, tier: cfg.baseTier, size: cfg.size, slotIndex: freeSlot });
         run.markModified('stash');
+      }
+
+      // ── PvE 胜利后生成 3 选 1 全局被动技能 ──
+      const ownedPassives = (run.globalPassives ?? []) as OwnedPassive[];
+      const ownedIds = new Set(ownedPassives.map(p => p.id));
+      // 可叠加技能保留在池中，不可叠加且已拥有则排除
+      const pool = GLOBAL_PASSIVE_POOL
+        .filter(cfg => cfg.stackable || !ownedIds.has(cfg.id))
+        .map(cfg => cfg.id);
+      const choices = this.pickRandomChoices(pool, SKILL_CHOICES_COUNT);
+      if (choices.length > 0) {
+        run.pendingSkillChoice = { choices };
+        run.markModified('pendingSkillChoice');
       }
     }
 
@@ -300,7 +317,7 @@ export class RunService {
     }
 
     const result = resolveBattle(
-      { hp: run.maxHp, maxHp: run.maxHp, level: run.level, board: run.board },
+      { hp: run.maxHp, maxHp: run.maxHp, level: run.level, board: run.board, passives: run.globalPassives ?? undefined },
       { hp: opponent.maxHp, maxHp: opponent.maxHp, level: opponent.level, board: opponent.board },
     );
 
@@ -979,7 +996,58 @@ export class RunService {
   }
 
   /**
-   * 按 Kind 标签随机选一个物品
+   * 从数组中随机选取 n 个不重复元素
+   */
+  private pickRandomChoices<T>(arr: T[], n: number): T[] {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, Math.min(n, copy.length));
+  }
+
+  /**
+   * 处理 PvE 胜利后的技能选择：将选中的全局被动技能应用到 run 上
+   */
+  async handleSkillChoice(runId: string, userId: string, choiceId: GlobalPassiveId): Promise<RunState> {
+    const run = await this.getActiveRun(runId, userId);
+    if (!run.pendingSkillChoice) throw new Error('没有待处理的技能选择');
+    const choices = run.pendingSkillChoice.choices as GlobalPassiveId[];
+    if (!choices.includes(choiceId)) {
+      throw new Error('无效的技能选择，不在可选列表中');
+    }
+
+    const passiveDef = GLOBAL_PASSIVE_MAP.get(choiceId);
+    if (!passiveDef) throw new Error(`未知的被动技能: ${choiceId}`);
+
+    // 已拥有的可叠加技能：增加 stacks 和 totalValue
+    const owned = (run.globalPassives ?? []) as OwnedPassive[];
+    const existing = owned.find(p => p.id === choiceId);
+    if (existing && passiveDef.stackable) {
+      existing.stacks += 1;
+      existing.totalValue = passiveDef.value * existing.stacks;
+    } else if (!existing || passiveDef.stackable) {
+      owned.push({ id: choiceId, stacks: 1, totalValue: passiveDef.value });
+    }
+
+    // 某些被动技能需直接修改 run 属性
+    if (choiceId === 'hp_regen_passive') {
+      run.hpRegen = (run.hpRegen ?? 0) + passiveDef.value;
+    } else if (choiceId === 'gold_bonus_passive') {
+      run.goldGainBonus = (run.goldGainBonus ?? 0) + passiveDef.value;
+    }
+
+    run.globalPassives = owned;
+    run.markModified('globalPassives');
+    run.pendingSkillChoice = null;
+    run.markModified('pendingSkillChoice');
+    await run.save();
+    return toRunState(run);
+  }
+
+  /**
+   * 从数组中随机选取 n 个不重复元素（旧入口保留兼容）
    */
   private randomItemByKinds(kinds: string[], heroId?: string): string {
     const allItems = Array.from(ALL_ITEMS_MAP.values());

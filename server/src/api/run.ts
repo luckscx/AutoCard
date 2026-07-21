@@ -151,4 +151,11 @@ router.post('/levelup-choice', wrap(async (req, res) => {
   res.json({ run });
 }));
 
+router.post('/skill-choice', wrap(async (req, res) => {
+  const userId = await getUserId(req);
+  const { runId, choiceId } = req.body;
+  const run = await runService.handleSkillChoice(runId, userId, choiceId);
+  res.json({ run });
+}));
+
 export { router as runRouter };

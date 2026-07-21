@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
-import type { RunStatus, SlotItem, Tier, ItemSize, PendingEventState } from '@autocard/shared';
+import type { RunStatus, SlotItem, Tier, ItemSize, PendingEventState, OwnedPassive, PendingSkillChoiceState } from '@autocard/shared';
 
 export interface IRun extends Document {
   userId: Types.ObjectId;
@@ -24,6 +24,8 @@ export interface IRun extends Document {
   goldGainBonus: number;
   boardSlots: number;
   pendingLevelUp?: { level: number; choices: { label: string; kind: string }[] } | null;
+  globalPassives?: OwnedPassive[] | null;
+  pendingSkillChoice?: PendingSkillChoiceState | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +46,16 @@ const PendingEventSchema = new Schema<PendingEventState>({
   name: { type: String, required: true },
   description: { type: String, required: true },
   options: { type: [PendingEventOptionSchema], required: true },
+}, { _id: false });
+
+const OwnedPassiveSchema = new Schema<OwnedPassive>({
+  id: { type: String, required: true },
+  stacks: { type: Number, required: true },
+  totalValue: { type: Number, required: true },
+}, { _id: false });
+
+const PendingSkillChoiceSchema = new Schema<PendingSkillChoiceState>({
+  choices: { type: [String], required: true },
 }, { _id: false });
 
 const RunSchema = new Schema<IRun>({
@@ -73,6 +85,14 @@ const RunSchema = new Schema<IRun>({
       level: { type: Number, required: true },
       choices: [{ label: String, kind: String, _id: false }],
     }, { _id: false }),
+    default: null,
+  },
+  globalPassives: {
+    type: [OwnedPassiveSchema],
+    default: [],
+  },
+  pendingSkillChoice: {
+    type: PendingSkillChoiceSchema,
     default: null,
   },
 }, { timestamps: true });

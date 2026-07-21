@@ -4,7 +4,7 @@ import type {
   PlaceItemResponse, MergeItemResponse,
   BuyItemResponse, RefreshShopResponse, LeaveShopResponse, EventChoiceResponse,
   SellItemResponse, SwapItemsResponse,
-  UserMeResponse, LevelUpChoiceResponse, GetLeaderboardResponse, GetMyRankResponse,
+  UserMeResponse, LevelUpChoiceResponse, SkillChoiceResponse, GetLeaderboardResponse, GetMyRankResponse,
 } from '@autocard/shared';
 import type { HeroConfig, ItemConfig, MonsterConfig, EventConfig } from '@autocard/shared';
 
@@ -287,6 +287,9 @@ export const api = {
 
   levelUpChoice: (runId: string, choiceIndex: number) =>
     request<LevelUpChoiceResponse>('POST', '/run/levelup-choice', { runId, choiceIndex }),
+
+  skillChoice: (runId: string, choiceId: string) =>
+    request<SkillChoiceResponse>('POST', '/run/skill-choice', { runId, choiceId }),
 
   // Config
   getHeroes: () => request<HeroConfig[]>('GET', '/config/heroes'),

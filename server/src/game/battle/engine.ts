@@ -1,4 +1,4 @@
-import type { SlotItem, BattleSide, BattleEvent, BattleSnapshot, CardRuntimeState, ItemConfig } from '@autocard/shared';
+import type { SlotItem, BattleSide, BattleEvent, BattleSnapshot, CardRuntimeState, ItemConfig, OwnedPassive } from '@autocard/shared';
 import { TIER_MULTIPLIER, BATTLE_TICK_MS, BATTLE_OVERTIME_SEC, BATTLE_MAX_SEC } from '@autocard/shared';
 import { ITEMS_MAP, BAZAAR_ITEMS_MAP } from '../config/index.js';
 
@@ -12,6 +12,20 @@ interface Combatant {
   maxHp: number;
   level: number;
   board: SlotItem[];
+  passives?: OwnedPassive[];
+}
+
+/** 从 OwnedPassive[] 中提取某个技能的总效果值（0 表示未拥有） */
+function passiveValue(passives: OwnedPassive[] | undefined, id: string): number {
+  if (!passives) return 0;
+  const p = passives.find(x => x.id === id);
+  return p ? p.totalValue : 0;
+}
+
+/** 判断是否拥有某个非数值型被动技能（如 burn_enhance / poison_enhance / overtime_immune） */
+function hasPassive(passives: OwnedPassive[] | undefined, id: string): boolean {
+  if (!passives) return false;
+  return passives.some(x => x.id === id);
 }
 
 interface SideState {
@@ -22,16 +36,24 @@ interface SideState {
   burn: number;
   cards: CardRuntimeState[];
   board: SlotItem[];
+  /** 本方的全局被动技能列表 */
+  passives: OwnedPassive[];
+  /** 吸血累积治疗（在 applyEffect 中累计，由 dot/结算后统一应用） */
+  lifestealHeal: number;
 }
 
 function initSide(c: Combatant): SideState {
+  const passives = c.passives ?? [];
+  const startShield = passiveValue(passives, 'shield_start');
   return {
     hp: c.hp,
     maxHp: c.maxHp,
-    shield: 0,
+    shield: startShield,
     poison: 0,
     burn: 0,
     board: c.board,
+    passives,
+    lifestealHeal: 0,
     cards: c.board.map(item => ({
       slotIndex: item.slotIndex,
       cooldownProgress: 0,
@@ -114,6 +136,20 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
 
   snapshots.push(makeSnapshot(0, player, enemy));
 
+  // ── haste_start: 开局为玩家所有卡牌附加急速 ──
+  const playerHasteStart = passiveValue(player.passives, 'haste_start');
+  if (playerHasteStart > 0) {
+    for (const cs of player.cards) {
+      cs.hasteRemain += playerHasteStart;
+    }
+  }
+  const enemyHasteStart = passiveValue(enemy.passives, 'haste_start');
+  if (enemyHasteStart > 0) {
+    for (const cs of enemy.cards) {
+      cs.hasteRemain += enemyHasteStart;
+    }
+  }
+
   function getSide(side: BattleSide): SideState { return side === 'player' ? player : enemy; }
   function getOpponent(side: BattleSide): SideState { return side === 'player' ? enemy : player; }
   function oppSide(side: BattleSide): BattleSide { return side === 'player' ? 'enemy' : 'player'; }
@@ -134,23 +170,45 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
     const opp = getOpponent(sourceSide);
     const oppS = oppSide(sourceSide);
 
+    // ── 全局被动技能修正端口数值 ──
+    let modifiedValue = value;
+    if (portType === 'burn') {
+      modifiedValue += passiveValue(self.passives, 'burn_power');
+    } else if (portType === 'poison') {
+      modifiedValue += passiveValue(self.passives, 'poison_power');
+    } else if (portType === 'damage') {
+      const pct = passiveValue(self.passives, 'damage_power');
+      if (pct > 0) modifiedValue = Math.round(modifiedValue * (1 + pct));
+    } else if (portType === 'heal') {
+      const pct = passiveValue(self.passives, 'heal_power');
+      if (pct > 0) modifiedValue = Math.round(modifiedValue * (1 + pct));
+    } else if (portType === 'shield') {
+      modifiedValue += passiveValue(self.passives, 'shield_power');
+    } else if (portType === 'haste') {
+      modifiedValue += passiveValue(self.passives, 'haste_boost');
+    }
+
     switch (portType) {
       case 'damage': {
-        const real = Math.max(0, value - opp.shield);
-        opp.shield = Math.max(0, opp.shield - value);
+        const real = Math.max(0, modifiedValue - opp.shield);
+        opp.shield = Math.max(0, opp.shield - modifiedValue);
         opp.hp -= real;
-        // 修复 3: 将 crit 信息写入 damage 事件
+        // 吸血：造成实际伤害的 N% 转为治疗
+        const lifestealPct = passiveValue(self.passives, 'lifesteal');
+        if (lifestealPct > 0 && real > 0) {
+          self.lifestealHeal += Math.round(real * lifestealPct);
+        }
         events.push({ tick, type: 'damage', value: real, targetSide: oppS, ...(isCrit ? { crit: true } : {}) });
         break;
       }
       case 'poison': {
-        opp.poison += value;
-        events.push({ tick, type: 'poison', value, targetSide: oppS });
+        opp.poison += modifiedValue;
+        events.push({ tick, type: 'poison', value: modifiedValue, targetSide: oppS });
         break;
       }
       case 'burn': {
-        opp.burn += value;
-        events.push({ tick, type: 'burn', value, targetSide: oppS });
+        opp.burn += modifiedValue;
+        events.push({ tick, type: 'burn', value: modifiedValue, targetSide: oppS });
         break;
       }
       case 'destroy': {
@@ -170,13 +228,13 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
       }
       case 'heal': {
         const before = self.hp;
-        self.hp = Math.min(self.maxHp, self.hp + value);
+        self.hp = Math.min(self.maxHp, self.hp + modifiedValue);
         events.push({ tick, type: 'heal', value: self.hp - before, targetSide: sourceSide });
         break;
       }
       case 'shield': {
-        self.shield += value;
-        events.push({ tick, type: 'shield', value, targetSide: sourceSide });
+        self.shield += modifiedValue;
+        events.push({ tick, type: 'shield', value: modifiedValue, targetSide: sourceSide });
         break;
       }
       case 'haste':
@@ -196,19 +254,19 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
           const cs = getCardState(targetSideState, idx);
           if (!cs || cs.destroyed) continue;
           if (portType === 'haste') {
-            cs.hasteRemain += value;
+            cs.hasteRemain += modifiedValue;
           } else if (portType === 'slow') {
-            cs.slowRemain += value;
+            cs.slowRemain += modifiedValue;
           } else if (portType === 'freeze') {
-            cs.freezeRemain += value;
+            cs.freezeRemain += modifiedValue;
           } else if (portType === 'charge') {
-            cs.cooldownProgress += value;
+            cs.cooldownProgress += modifiedValue;
             // 修复 2: charge 过充后立即触发
             triggerCardIfReady(cs, sourceSide, tick, targetSideState);
           }
         }
 
-        events.push({ tick, type: portType as BattleEvent['type'], value, targetSide: evtSide, targetSlotIndices: indices } as BattleEvent);
+        events.push({ tick, type: portType as BattleEvent['type'], value: modifiedValue, targetSide: evtSide, targetSlotIndices: indices } as BattleEvent);
         break;
       }
     }
@@ -283,10 +341,14 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
     if (tick % 10 === 0) {
       for (const [s, side] of [[player, 'player'], [enemy, 'enemy']] as [SideState, BattleSide][]) {
         if (s.poison > 0 || s.burn > 0) {
-          const poisonDmg = s.poison;
+          // poison_enhance: 每个 stack 增加 N% dot 伤害
+          const mult = 1 + (side === 'player' ? passiveValue(player.passives, 'poison_enhance') : passiveValue(enemy.passives, 'poison_enhance'));
+          const poisonDmg = Math.round(s.poison * mult);
           const burnDmg = s.burn;
           s.hp -= poisonDmg + burnDmg;
-          s.burn = Math.max(0, s.burn - 1);
+          // burn_enhance: 每个 stack 减少 burn 衰减 N 层
+          const burnDecay = 1 + (side === 'player' ? passiveValue(player.passives, 'burn_enhance') : passiveValue(enemy.passives, 'burn_enhance'));
+          s.burn = Math.max(0, s.burn - burnDecay);
           events.push({ tick, type: 'dot_tick', side, poisonDmg, burnDmg });
         }
       }
@@ -298,11 +360,28 @@ export function runBattleEngine(attacker: Combatant, defender: Combatant): Battl
     processSide(tick, 'enemy');
     if (player.hp <= 0 || enemy.hp <= 0) break;
 
+    // 吸血治疗结算：每 tick 后将累积的吸血治疗应用
+    if (player.lifestealHeal > 0) {
+      const before = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + player.lifestealHeal);
+      const healed = player.hp - before;
+      if (healed > 0) events.push({ tick, type: 'heal', value: healed, targetSide: 'player' });
+      player.lifestealHeal = 0;
+    }
+    if (enemy.lifestealHeal > 0) {
+      const before = enemy.hp;
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.lifestealHeal);
+      const healed = enemy.hp - before;
+      if (healed > 0) events.push({ tick, type: 'heal', value: healed, targetSide: 'enemy' });
+      enemy.lifestealHeal = 0;
+    }
+
     if (tick >= overtimeTick && tick % 10 === 0) {
       const sec = Math.floor(tick / 10);
       const otDmg = sec - BATTLE_OVERTIME_SEC;
       if (otDmg > 0) {
-        player.hp -= otDmg;
+        // overtime_immune: 玩家免疫加时赛伤害
+        if (!hasPassive(player.passives, 'overtime_immune')) player.hp -= otDmg;
         enemy.hp -= otDmg;
         events.push({ tick, type: 'overtime', playerDmg: otDmg, enemyDmg: otDmg });
       }
