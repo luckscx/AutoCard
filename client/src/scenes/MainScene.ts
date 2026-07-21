@@ -263,11 +263,8 @@ export class MainScene extends Scene {
           const result = await api.levelUpChoice(runId, i);
           gameState.setRun(result.run);
           this.refresh();
-<<<<<<< HEAD
           this.renderZ2();
           showUpgradeEffect(this, `⬆️ 升至 Lv.${pending.level}！${choice.label}`, 0xffd700);
-=======
->>>>>>> beb5574 (auto-commit-by-daily-sync 2026-07-20 23:00)
         } catch (e: any) {
           console.error('levelup choice failed:', e.message);
           alert(e.message || '升级选择失败');
@@ -306,7 +303,7 @@ export class MainScene extends Scene {
       btn.y = Z2_CARD_Y + i * 72;
 
       // ── 技能图标 ──
-      const iconUrl = `assets/skills/${choiceId}.png`;
+      const iconUrl = `assets/skills/webp/${choiceId}.webp`;
       const iconX = 8;
       const iconY = (65 - iconSize) / 2;
       const applyIcon = (texture: Texture) => {
